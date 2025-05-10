@@ -37,7 +37,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Parol */}
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-2 block">Parol*</label>
             <input
