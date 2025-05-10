@@ -26,7 +26,6 @@ const Login = () => {
       </header>
       <main className="w-100 flex justify-center py-5">
         <div className="bg-[#fff] border-[2px] border-[#E5E7EB] p-6 rounded-lg w-full max-w-md">
-          {/* Login */}
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-2 block">Login*</label>
             <input
