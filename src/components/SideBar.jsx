@@ -67,7 +67,7 @@ const Sidebar = ({ active, onClose }) => {
   const handleLogout = () => {
     localStorage.removeItem("ziyo-jwt");
     navigate("/");
-    onClose();
+    window.location.reload();
   };
 
   if (error) console.log(error); // Log any errors for debugging
