@@ -10,7 +10,7 @@ const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const loginHandler = () => {
-    UserService.login(
+    UserService.loginUser(
       dispatch,
       {
         login,
