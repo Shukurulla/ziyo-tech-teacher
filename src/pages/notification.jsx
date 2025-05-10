@@ -9,6 +9,7 @@ import {
   TextField,
 } from "@mui/material";
 import { FaDownload, FaStar, FaChalkboardTeacher } from "react-icons/fa";
+import { convertToHttps } from "../utils";
 
 const TeacherSubmissions = () => {
   const [submissions, setSubmissions] = useState([]);
@@ -136,7 +137,7 @@ const TeacherSubmissions = () => {
                       variant="contained"
                       className="bg-blue-600 text-white hover:bg-blue-700"
                       startIcon={<FaDownload />}
-                      href={file.fileUrl}
+                      href={convertToHttps(file.fileUrl)}
                       target="_blank"
                     >
                       Yuklab olish

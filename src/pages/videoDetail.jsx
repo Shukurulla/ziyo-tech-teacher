@@ -270,7 +270,7 @@ const VideoDetail = () => {
                   {name}
                 </Typography>
                 <audio controls className="w-full">
-                  <source src={url} type="audio/mpeg" />
+                  <source src={convertToHttps(url)} type="audio/mpeg" />
                   Brauzeringiz audio pleerni qo‘llab-quvvatlamaydi.
                 </audio>
                 <Button
@@ -280,6 +280,7 @@ const VideoDetail = () => {
                   color="secondary"
                   startIcon={<FaDownload />}
                   className="mt-2"
+                  download
                 >
                   Yuklab olish
                 </Button>
