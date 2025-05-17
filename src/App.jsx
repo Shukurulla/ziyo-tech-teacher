@@ -13,6 +13,7 @@ import AddTest from "./pages/createTestPage";
 import PracticeList from "./pages/practiceList";
 import EditProfile from "./pages/settings";
 import TeacherSubmissions from "./pages/notification";
+import AddMatchingTest from "./pages/matchingTestCreate";
 
 const App = () => {
   const navigate = useNavigate();
@@ -62,6 +63,12 @@ const App = () => {
         <Route
           path="/video/:videoId/add-test"
           element={<Layout active={"Bosh Sahifa"} activePage={<AddTest />} />}
+        />
+        <Route
+          path="/video/:videoId/add-matching-test"
+          element={
+            <Layout active={"Bosh Sahifa"} activePage={<AddMatchingTest />} />
+          }
         />
         <Route
           path="/notifications"
