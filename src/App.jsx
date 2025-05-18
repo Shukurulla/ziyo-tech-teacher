@@ -14,6 +14,7 @@ import PracticeList from "./pages/practiceList";
 import EditProfile from "./pages/settings";
 import TeacherSubmissions from "./pages/notification";
 import AddMatchingTest from "./pages/matchingTestCreate";
+import TestTypeSelection from "./pages/TestTypeSelection";
 
 const App = () => {
   const navigate = useNavigate();
@@ -74,6 +75,12 @@ const App = () => {
           path="/notifications"
           element={
             <Layout active={"Xabarlar"} activePage={<TeacherSubmissions />} />
+          }
+        />
+        <Route
+          path="/video/:videoId/select-test-type"
+          element={
+            <Layout active={"Bosh Sahifa"} activePage={<TestTypeSelection />} />
           }
         />
       </Routes>

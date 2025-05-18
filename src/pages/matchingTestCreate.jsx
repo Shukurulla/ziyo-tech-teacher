@@ -19,7 +19,6 @@ const AddMatchingTest = () => {
   const navigate = useNavigate();
 
   const [topic, setTopic] = useState("");
-  const [questionText, setQuestionText] = useState("");
   const [options, setOptions] = useState([
     { left: "", right: "" }, // 1-juftlik
     { left: "", right: "" }, // 2-juftlik
@@ -38,12 +37,12 @@ const AddMatchingTest = () => {
   };
 
   const handleAddQuestion = () => {
-    if (!questionText || options.some((opt) => !opt.left || !opt.right)) {
-      return toast.error("Barcha maydonlarni to‘ldiring!");
+    if (!topic || options.some((opt) => !opt.left || !opt.right)) {
+      return toast.error("Barcha maydonlarni to'ldiring!");
     }
 
     setIsPairing(true);
-    toast.success("Juftliklarni tasdiqlashga o‘ting");
+    toast.success("Juftliklarni tasdiqlashga o'ting");
   };
 
   const handleConfirmPairs = () => {
@@ -53,12 +52,12 @@ const AddMatchingTest = () => {
     ]);
 
     const newQuestion = {
-      questionText,
+      questionText: topic,
       options: formattedOptions,
     };
 
     setQuestionsList([...questionsList, newQuestion]);
-    setQuestionText("");
+    setTopic("");
     setOptions([
       { left: "", right: "" },
       { left: "", right: "" },
@@ -68,19 +67,21 @@ const AddMatchingTest = () => {
     ]);
     setIsPairing(false);
 
-    toast.success("Savol qo‘shildi");
+    toast.success("Savol qo'shildi");
   };
 
   const handleSubmit = async () => {
     if (!topic || questionsList.length === 0) {
-      return toast.error("Mavzu va kamida bitta savol bo‘lishi kerak");
+      return toast.error("Mavzu va kamida bitta savol bo'lishi kerak");
     }
 
     setLoading(true);
     try {
+      // Updated to include videoId
       await axios.post(`/api/questions/create`, {
-        topic,
-        questions: questionsList,
+        questionText: topic,
+        options: questionsList[0].options, // assuming one question format for matching
+        videoId,
       });
 
       toast.success("Test muvaffaqiyatli saqlandi");
@@ -119,15 +120,6 @@ const AddMatchingTest = () => {
               Savol va juftliklar
             </Typography>
 
-            <TextField
-              label="Savol matni"
-              variant="outlined"
-              fullWidth
-              className="mb-4"
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-            />
-
             {!isPairing ? (
               <>
                 <Typography variant="subtitle1" className="mb-2">
@@ -150,7 +142,7 @@ const AddMatchingTest = () => {
                         </Grid>
                         <Grid item xs={6}>
                           <TextField
-                            label={`O‘ng ${index + 1}`}
+                            label={`O'ng ${index + 1}`}
                             variant="outlined"
                             fullWidth
                             value={opt.right}
@@ -190,7 +182,7 @@ const AddMatchingTest = () => {
                   color="primary"
                   onClick={handleConfirmPairs}
                 >
-                  Savolni qo‘shish
+                  Savolni qo'shish
                 </Button>
                 <Button
                   variant="outlined"
@@ -198,7 +190,7 @@ const AddMatchingTest = () => {
                   onClick={() => setIsPairing(false)}
                   className="ml-2"
                 >
-                  O‘zgartirish
+                  O'zgartirish
                 </Button>
               </>
             )}
@@ -208,7 +200,7 @@ const AddMatchingTest = () => {
         {questionsList.length > 0 && (
           <div className="mb-6">
             <Typography variant="h6" className="mb-2 font-semibold">
-              Qo‘shilgan savollar
+              Qo'shilgan savollar
             </Typography>
             <div className="space-y-3">
               {questionsList.map((q, index) => (

@@ -12,6 +12,8 @@ import {
   Alert,
   IconButton,
   Paper,
+  LinearProgress,
+  CircularProgress,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -30,6 +32,12 @@ function CreateVideo() {
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState({
+    video: 0,
+    server: 0,
+    overall: 0,
+  });
+  const [uploadStage, setUploadStage] = useState(""); // 'video', 'server', 'complete'
 
   const navigate = useNavigate();
 
@@ -42,7 +50,7 @@ function CreateVideo() {
       const existingFiles = Array.from(formData[name]);
       const newFiles = Array.from(files);
 
-      // Yangi fayllarni oldingilar bilan qo‘shib yuborish
+      // Yangi fayllarni oldingilar bilan qo'shib yuborish
       const combined = [...existingFiles, ...newFiles];
       setFormData({ ...formData, [name]: combined });
     }
@@ -55,37 +63,75 @@ function CreateVideo() {
   };
 
   const handleVideoUpload = async () => {
+    setUploadStage("video");
     const apiKey = "Jema7G2W7aF46lccCcnZz4slt5kljMsdHtnrZ1Phnjo";
     const title = formData.title;
 
-    const createRes = await fetch("https://ws.api.video/videos", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title }),
-    });
-
-    const createData = await createRes.json();
-    const videoId = createData.videoId;
-
-    const formDataVideo = new FormData();
-    formDataVideo.append("file", formData.video);
-
-    const uploadRes = await fetch(
-      `https://ws.api.video/videos/${videoId}/source`,
-      {
+    try {
+      // Create video metadata
+      const createRes = await fetch("https://ws.api.video/videos", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
-        body: formDataVideo,
-      }
-    );
+        body: JSON.stringify({ title }),
+      });
 
-    const uploadData = await uploadRes.json();
-    return uploadData?.assets;
+      const createData = await createRes.json();
+      if (!createData.videoId) {
+        throw new Error("Video yaratishda xatolik");
+      }
+
+      const videoId = createData.videoId;
+
+      // Prepare upload form data
+      const formDataVideo = new FormData();
+      formDataVideo.append("file", formData.video);
+
+      // Upload the video with progress tracking
+      const uploadResponse = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round(
+              (event.loaded / event.total) * 100
+            );
+            setUploadProgress((prev) => ({
+              ...prev,
+              video: percentComplete,
+              overall: Math.round(percentComplete * 0.7), // Video is 70% of overall progress
+            }));
+          }
+        });
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Set video progress to 100% when complete
+            setUploadProgress((prev) => ({
+              ...prev,
+              video: 100,
+              overall: 70, // Video is 70% complete of overall process
+            }));
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(`HTTP Error: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error"));
+
+        xhr.open("POST", `https://ws.api.video/videos/${videoId}/source`);
+        xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`);
+        xhr.send(formDataVideo);
+      });
+
+      return uploadResponse?.assets;
+    } catch (error) {
+      console.error("Video yuklashda xatolik:", error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -93,33 +139,108 @@ function CreateVideo() {
     setSuccess("");
     setError("");
     setIsLoading(true);
+    setUploadProgress({ video: 0, server: 0, overall: 0 });
+
     try {
+      // Upload video to API.video
       const videoLink = await handleVideoUpload();
 
+      // Now move to server upload stage
+      setUploadStage("server");
+
+      // Prepare form data for server upload
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description);
       data.append("video", JSON.stringify(videoLink));
 
+      // Add audio files
       for (const file of formData.audios) data.append("audios", file);
+
+      // Add presentation files
       for (const file of formData.presentations)
         data.append("presentations", file);
 
-      await axios.post("/api/upload", data);
-      //   setSuccess("Yuklandi!✅");
-      toast.success("Yuklandi!✅");
+      // Upload to our server with progress tracking
+      await axios.post("/api/upload", data, {
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.lengthComputable) {
+            const percentComplete = Math.round(
+              (progressEvent.loaded / progressEvent.total) * 100
+            );
+            setUploadProgress((prev) => ({
+              ...prev,
+              server: percentComplete,
+              overall: 70 + Math.round(percentComplete * 0.3), // Server upload is 30% of overall progress
+            }));
+          }
+        },
+      });
+
+      // Set upload as complete
+      setUploadStage("complete");
+      setUploadProgress({
+        video: 100,
+        server: 100,
+        overall: 100,
+      });
+
+      // Short delay to ensure user sees 100% progress
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Success!
+      toast.success("Video muvaffaqiyatli yuklandi! ✅");
       navigate("/");
     } catch (err) {
       console.error(err);
       setError("Yuklashda xatolik yuz berdi.❌");
+      toast.error("Yuklashda xatolik yuz berdi.❌");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
+
+  // Get stage text
+  const getStageText = () => {
+    switch (uploadStage) {
+      case "video":
+        return "Video API.video serveriga yuklanmoqda...";
+      case "server":
+        return "Audio va taqdimotlar serverga yuklanmoqda...";
+      case "complete":
+        return "Yuklash yakunlandi! Sahifaga yo'naltirilmoqdasiz...";
+      default:
+        return "";
+    }
+  };
+
+  // Render upload progress component
+  const renderProgressBar = (label, value) => (
+    <Box sx={{ width: "100%", mb: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+        <Typography variant="body2">{label}</Typography>
+        <Typography variant="body2">{value}%</Typography>
+      </Box>
+      <LinearProgress
+        variant="determinate"
+        value={value}
+        sx={{
+          height: 8,
+          borderRadius: 5,
+          backgroundColor: "#e6e6e6",
+          "& .MuiLinearProgress-bar": {
+            borderRadius: 5,
+            backgroundColor: "#1a90ff",
+          },
+        }}
+      />
+    </Box>
+  );
 
   return (
     <div>
       <div>
-        <Button onClick={() => navigate("/")}>
+        <Button onClick={() => navigate("/")} disabled={isLoading}>
           <FiChevronLeft size={25} />
         </Button>
       </div>
@@ -137,6 +258,7 @@ function CreateVideo() {
                 variant="outlined"
                 required
                 fullWidth
+                disabled={isLoading}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
@@ -149,6 +271,7 @@ function CreateVideo() {
                 rows={4}
                 required
                 fullWidth
+                disabled={isLoading}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
@@ -161,6 +284,7 @@ function CreateVideo() {
                   component="label"
                   variant="outlined"
                   startIcon={<CloudUploadIcon />}
+                  disabled={isLoading}
                 >
                   Video tanlang
                   <input
@@ -170,6 +294,7 @@ function CreateVideo() {
                     hidden
                     onChange={handleChange}
                     required
+                    disabled={isLoading}
                   />
                 </Button>
                 <FormHelperText>
@@ -184,6 +309,7 @@ function CreateVideo() {
                   component="label"
                   variant="outlined"
                   startIcon={<CloudUploadIcon />}
+                  disabled={isLoading}
                 >
                   Audios tanlang
                   <input
@@ -193,6 +319,7 @@ function CreateVideo() {
                     multiple
                     hidden
                     onChange={handleChange}
+                    disabled={isLoading}
                   />
                 </Button>
                 <FormHelperText>
@@ -209,7 +336,10 @@ function CreateVideo() {
                       sx={{ display: "flex", alignItems: "center", p: 1 }}
                     >
                       <Box sx={{ flexGrow: 1 }}>{file.name}</Box>
-                      <IconButton onClick={() => removeFile("audios", idx)}>
+                      <IconButton
+                        onClick={() => removeFile("audios", idx)}
+                        disabled={isLoading}
+                      >
                         <DeleteIcon />
                       </IconButton>
                     </Paper>
@@ -224,6 +354,7 @@ function CreateVideo() {
                   component="label"
                   variant="outlined"
                   startIcon={<CloudUploadIcon />}
+                  disabled={isLoading}
                 >
                   Prezentatsiyalar tanlang
                   <input
@@ -233,6 +364,7 @@ function CreateVideo() {
                     multiple
                     hidden
                     onChange={handleChange}
+                    disabled={isLoading}
                   />
                 </Button>
                 <FormHelperText>
@@ -251,6 +383,7 @@ function CreateVideo() {
                       <Box sx={{ flexGrow: 1 }}>{file.name}</Box>
                       <IconButton
                         onClick={() => removeFile("presentations", idx)}
+                        disabled={isLoading}
                       >
                         <DeleteIcon />
                       </IconButton>
@@ -259,11 +392,54 @@ function CreateVideo() {
                 </Stack>
               </Box>
 
+              {/* Progress Indicators */}
+              {isLoading && (
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" mb={1}>
+                    {getStageText()}
+                  </Typography>
+
+                  {uploadStage === "video" &&
+                    renderProgressBar("Video yuklash", uploadProgress.video)}
+
+                  {uploadStage === "server" && (
+                    <>
+                      <Typography variant="body2" color="success.main" mb={1}>
+                        ✓ Video yuklandi
+                      </Typography>
+                      {renderProgressBar(
+                        "Audio va taqdimotlar yuklash",
+                        uploadProgress.server
+                      )}
+                    </>
+                  )}
+
+                  {uploadStage === "complete" && (
+                    <>
+                      <Typography variant="body2" color="success.main" mb={1}>
+                        ✓ Video yuklandi
+                      </Typography>
+                      <Typography variant="body2" color="success.main" mb={1}>
+                        ✓ Audio va taqdimotlar yuklandi
+                      </Typography>
+                    </>
+                  )}
+
+                  {renderProgressBar("Umumiy progress", uploadProgress.overall)}
+                </Box>
+              )}
+
               <Button
                 disabled={isLoading}
                 variant="contained"
                 type="submit"
                 color="primary"
+                size="large"
+                startIcon={
+                  isLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : null
+                }
               >
                 {isLoading ? `Yuklanmoqda...` : "Yuklash"}
               </Button>

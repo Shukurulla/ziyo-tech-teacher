@@ -122,10 +122,11 @@ const VideoDetail = () => {
             Testlar
           </Typography>
           <Button
+            onClick={() => navigate(`/video/${id}/select-test-type`)}
             variant="contained"
-            onClick={() => navigate(`/video/${id}/add-test`)}
+            className="w-100 mt-3"
           >
-            Test qo‘shish
+            Test qo'shish
           </Button>
         </div>
         <Dialog
