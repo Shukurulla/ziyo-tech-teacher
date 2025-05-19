@@ -121,10 +121,11 @@ const VideoDetail = () => {
           <Typography variant="h6" className="font-semibold">
             Testlar
           </Typography>
+          <div></div>
           <Button
             onClick={() => navigate(`/video/${id}/select-test-type`)}
             variant="contained"
-            className="w-100 mt-3"
+            className="w- mt-3 "
           >
             Test qo'shish
           </Button>
