@@ -1,132 +1,243 @@
-import React, { useEffect, useState } from "react";
-import {
-  FiClock,
-  FiLock,
-  FiPlay,
-  FiPlus,
-  FiVideo,
-  FiBell,
-} from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
-import { Button, Badge, Tooltip, CircularProgress } from "@mui/material";
+// src/pages/VideoManagement.jsx
+import React, { useState, useEffect } from "react";
 import axios from "../services/api";
+import {
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  TextField,
+  Typography,
+  CircularProgress,
+  Grid,
+  Box,
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { FiTrash2, FiEdit, FiPlus } from "react-icons/fi";
+import toast from "react-hot-toast";
 
-const Dashboard = () => {
-  const navigate = useNavigate();
+const VideoManagement = () => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [submissions, setSubmissions] = useState({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+  });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch videos
-        const res = await axios.get("/api/video/all");
-        if (res.data.status === "success") {
-          setVideos(res.data.data);
-        }
-
-        // Fetch submissions to count them by video
-        const submissionsRes = await axios.get("/api/submissions/all");
-        const submissionData = submissionsRes.data.data;
-
-        // Group submissions by video ID
-        const submissionCounts = {};
-        submissionData.forEach((sub) => {
-          if (sub.type === "videoWork") {
-            // Extract video ID from the title or from workId
-            const videoId = sub.workId;
-            if (videoId) {
-              if (!submissionCounts[videoId]) {
-                submissionCounts[videoId] = 0;
-              }
-              // Only count unrated submissions
-              if (!sub.isSended) {
-                submissionCounts[videoId]++;
-              }
-            }
-          }
-        });
-
-        setSubmissions(submissionCounts);
-      } catch (err) {
-        console.error("Video olishda xatolik:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchVideos();
   }, []);
 
-  const videoStatus = (video, idx) => {
-    if (video.complete === true || idx === 0) return <FiPlay />;
-    if (video.complete === false) return <FiLock />;
-    if (video.complete === "watching") return <FiClock />;
+  const fetchVideos = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("/api/video/all");
+      if (response.data.status === "success") {
+        setVideos(response.data.data);
+      }
+    } catch (error) {
+      toast.error("Videolarni yuklashda xatolik yuz berdi");
+      console.error("Error fetching videos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditClick = (video) => {
+    setSelectedVideo(video);
+    setEditForm({
+      title: video.title,
+      description: video.description,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (video) => {
+    setSelectedVideo(video);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    try {
+      const response = await axios.put(
+        `/api/video/${selectedVideo._id}`,
+        editForm
+      );
+      if (response.data.status === "success") {
+        toast.success("Video muvaffaqiyatli yangilandi");
+        setEditDialogOpen(false);
+        fetchVideos();
+      }
+    } catch (error) {
+      toast.error("Videoni yangilashda xatolik yuz berdi");
+      console.error("Error updating video:", error);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      const response = await axios.delete(`/api/video/${selectedVideo._id}`);
+      if (response.data.status === "success") {
+        toast.success("Video muvaffaqiyatli o'chirildi");
+        setDeleteDialogOpen(false);
+        fetchVideos();
+      }
+    } catch (error) {
+      toast.error("Videoni o'chirishda xatolik yuz berdi");
+      console.error("Error deleting video:", error);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <Box className="flex justify-center items-center h-64">
         <CircularProgress />
-      </div>
+      </Box>
     );
   }
 
   return (
-    <div>
-      <div className="flex mb-3 items-center justify-between">
-        <h1 className="text-2xl font-[600]">Video darslar</h1>
-        <Button variant="contained" onClick={() => navigate("/create-video")}>
-          <FiPlus /> Qo'shish
+    <div className="container mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <Typography variant="h4" component="h1" className="font-bold">
+          Video Boshqaruvi
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<FiPlus />}
+          onClick={() => navigate("/create-video")}
+        >
+          Yangi Video Qo'shish
         </Button>
       </div>
 
       <div className="row">
-        {videos.map((item, idx) => (
-          <div
-            key={item._id}
-            className="col-lg-3 col-md-4 col-sm-6 col-12"
-            onClick={() => navigate(`/video/${item._id}`)}
-          >
-            <div className="cursor-pointer mb-4">
-              <div className="relative video-image rounded-lg overflow-hidden h-[180px] bg-gray-100">
+        {videos.map((video) => (
+          <div className="col-lg-4 col-md-6 col-sm-12 mt-4 ">
+            <Card
+              className="h-full flex flex-col cursor-pointer "
+              onClick={() => navigate(`/video/${video._id}`)}
+            >
+              <div className="relative h-48 overflow-hidden">
                 <img
-                  src={item.video?.thumbnail}
-                  loading="eager"
-                  alt="Thumbnail"
+                  src={video.video?.thumbnail}
+                  alt={video.title}
                   className="w-full h-full object-cover"
                 />
-                {/* Play Icon Centered */}
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1111] bg-opacity-40 hover:bg-opacity-50 transition">
-                  <div className="w-14 flex items-center justify-center bg-white rounded-full h-14">
-                    {videoStatus(item, idx)}
-                  </div>
-                </div>
-
-                {/* Notification badge */}
-                {submissions[item._id] > 0 && (
-                  <div className="absolute top-2 right-2">
-                    <Tooltip
-                      title={`${submissions[item._id]} ta yangi topshiriq`}
-                    >
-                      <Badge badgeContent={submissions[item._id]} color="error">
-                        <div className="bg-white rounded-full p-2">
-                          <FiBell size={16} className="text-orange-500" />
-                        </div>
-                      </Badge>
-                    </Tooltip>
-                  </div>
-                )}
               </div>
-              <h1 className="text-md font-[600] mt-2">{item.title}</h1>
-            </div>
+              <CardContent className="flex-1 flex flex-col">
+                <Typography variant="h6" className="font-semibold mb-2">
+                  {video.title}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="textSecondary"
+                  className="flex-1 mb-4 line-clamp-3"
+                >
+                  {video.description}
+                </Typography>
+                <div className="flex justify-between mt-auto">
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<FiEdit />}
+                    onClick={() => handleEditClick(video)}
+                  >
+                    Tahrirlash
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<FiTrash2 />}
+                    onClick={() => handleDeleteClick(video)}
+                  >
+                    O'chirish
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         ))}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+        <DialogTitle>Videoni Tahrirlash</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            name="title"
+            label="Sarlavha"
+            type="text"
+            fullWidth
+            value={editForm.title}
+            onChange={handleInputChange}
+          />
+          <TextField
+            margin="dense"
+            name="description"
+            label="Tavsif"
+            type="text"
+            fullWidth
+            multiline
+            rows={4}
+            value={editForm.description}
+            onChange={handleInputChange}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Bekor qilish</Button>
+          <Button onClick={handleEditSubmit} color="primary">
+            Saqlash
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          Videoni o'chirishni tasdiqlaysizmi?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            {selectedVideo?.title} videosini o'chirmoqchimisiz? Bu amalni
+            qaytarib bo'lmaydi.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>
+            Bekor qilish
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" autoFocus>
+            O'chirish
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
 
-export default Dashboard;
+export default VideoManagement;

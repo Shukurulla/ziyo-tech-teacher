@@ -1,3 +1,4 @@
+// Updated src/App.jsx for teacher application
 import React, { useEffect } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import Register from "./pages/register";
@@ -5,7 +6,6 @@ import Login from "./pages/login";
 import { Toaster } from "react-hot-toast";
 import Layout from "./pages/layout";
 import Dashboard from "./pages/dashboard";
-import PracticTests from "./pages/practicTests";
 import Materials from "./pages/materials";
 import CreateVideo from "./pages/create-video";
 import VideoDetailPage from "./pages/videoDetail";

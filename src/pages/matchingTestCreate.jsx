@@ -1,3 +1,4 @@
+// Updated src/pages/matchingTestCreate.jsx
 import React, { useState } from "react";
 import {
   TextField,
@@ -8,83 +9,73 @@ import {
   CircularProgress,
   Paper,
   Grid,
+  IconButton,
+  Divider,
+  InputAdornment,
 } from "@mui/material";
+import { FiChevronLeft, FiPlus, FiMinus } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
-import { FiChevronLeft } from "react-icons/fi";
+import axios from "../services/api";
 
 const AddMatchingTest = () => {
   const { videoId } = useParams();
   const navigate = useNavigate();
 
   const [topic, setTopic] = useState("");
-  const [options, setOptions] = useState([
-    { left: "", right: "" }, // 1-juftlik
-    { left: "", right: "" }, // 2-juftlik
-    { left: "", right: "" }, // 3-juftlik
-    { left: "", right: "" }, // 4-juftlik
-    { left: "", right: "" }, // 5-juftlik
+  const [pairs, setPairs] = useState([
+    { question: "", answer: "" },
+    { question: "", answer: "" },
+    { question: "", answer: "" },
+    { question: "", answer: "" },
   ]);
-  const [isPairing, setIsPairing] = useState(false);
-  const [questionsList, setQuestionsList] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const handleOptionChange = (index, field, value) => {
-    const newOptions = [...options];
-    newOptions[index] = { ...newOptions[index], [field]: value };
-    setOptions(newOptions);
+  const handlePairChange = (index, field, value) => {
+    const newPairs = [...pairs];
+    newPairs[index][field] = value;
+    setPairs(newPairs);
   };
 
-  const handleAddQuestion = () => {
-    if (!topic || options.some((opt) => !opt.left || !opt.right)) {
-      return toast.error("Barcha maydonlarni to'ldiring!");
+  const addPair = () => {
+    setPairs([...pairs, { question: "", answer: "" }]);
+  };
+
+  const removePair = (index) => {
+    if (pairs.length <= 2) {
+      toast.error("Kamida 2 ta juftlik bo'lishi kerak");
+      return;
     }
-
-    setIsPairing(true);
-    toast.success("Juftliklarni tasdiqlashga o'ting");
-  };
-
-  const handleConfirmPairs = () => {
-    const formattedOptions = options.flatMap((opt) => [
-      { text: opt.left, group: 1, match: opt.right },
-      { text: opt.right, group: 2, match: opt.left },
-    ]);
-
-    const newQuestion = {
-      questionText: topic,
-      options: formattedOptions,
-    };
-
-    setQuestionsList([...questionsList, newQuestion]);
-    setTopic("");
-    setOptions([
-      { left: "", right: "" },
-      { left: "", right: "" },
-      { left: "", right: "" },
-      { left: "", right: "" },
-      { left: "", right: "" },
-    ]);
-    setIsPairing(false);
-
-    toast.success("Savol qo'shildi");
+    const newPairs = [...pairs];
+    newPairs.splice(index, 1);
+    setPairs(newPairs);
   };
 
   const handleSubmit = async () => {
-    if (!topic || questionsList.length === 0) {
-      return toast.error("Mavzu va kamida bitta savol bo'lishi kerak");
+    // Validate inputs
+    if (!topic.trim()) {
+      return toast.error("Test mavzusini kiriting");
     }
+
+    if (pairs.some((pair) => !pair.question.trim() || !pair.answer.trim())) {
+      return toast.error("Barcha savol va javoblarni to'ldiring");
+    }
+
+    // Format pairs for API
+    const formattedOptions = pairs.flatMap((pair) => [
+      { text: pair.answer, group: 1, match: pair.question },
+      { text: pair.question, group: 2, match: pair.answer },
+    ]);
 
     setLoading(true);
     try {
-      // Updated to include videoId
       await axios.post(`/api/questions/create`, {
         questionText: topic,
-        options: questionsList[0].options, // assuming one question format for matching
+        options: formattedOptions,
         videoId,
       });
 
-      toast.success("Test muvaffaqiyatli saqlandi");
+      toast.success("Matching test muvaffaqiyatli saqlandi");
       navigate(`/video/${videoId}`);
     } catch (err) {
       toast.error("Xatolik yuz berdi: " + err.message);
@@ -94,153 +85,119 @@ const AddMatchingTest = () => {
   };
 
   return (
-    <div>
-      <div>
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="mb-6">
         <Button onClick={() => navigate(-1)}>
           <FiChevronLeft size={25} />
         </Button>
       </div>
-      <div className="p-6 max-w-4xl mx-auto">
-        <Typography variant="h5" className="mb-4 font-bold">
-          Juftlashtirish Testi Yaratish
-        </Typography>
 
-        <TextField
-          label="Test mavzusi"
-          variant="outlined"
-          fullWidth
-          className="mb-4"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-        />
+      <Typography variant="h4" className="mb-6 font-bold text-center">
+        Juftlashtirish Testi Yaratish
+      </Typography>
 
-        <Card className="mb-4">
-          <CardContent>
-            <Typography variant="h6" className="mb-3">
-              Savol va juftliklar
-            </Typography>
+      <Card className="mb-6">
+        <CardContent>
+          <Typography variant="h6" className="mb-4">
+            Test ma'lumotlari
+          </Typography>
 
-            {!isPairing ? (
-              <>
-                <Typography variant="subtitle1" className="mb-2">
-                  Juftliklarni kiriting
-                </Typography>
-                <Grid container spacing={2} className="mb-4">
-                  {options.map((opt, index) => (
-                    <Grid item xs={12} key={index}>
-                      <Grid container spacing={2}>
-                        <Grid item xs={6}>
-                          <TextField
-                            label={`Chap ${index + 1}`}
-                            variant="outlined"
-                            fullWidth
-                            value={opt.left}
-                            onChange={(e) =>
-                              handleOptionChange(index, "left", e.target.value)
-                            }
-                          />
-                        </Grid>
-                        <Grid item xs={6}>
-                          <TextField
-                            label={`O'ng ${index + 1}`}
-                            variant="outlined"
-                            fullWidth
-                            value={opt.right}
-                            onChange={(e) =>
-                              handleOptionChange(index, "right", e.target.value)
-                            }
-                          />
-                        </Grid>
-                      </Grid>
-                    </Grid>
-                  ))}
+          <TextField
+            label="Test mavzusi"
+            variant="outlined"
+            fullWidth
+            className="mb-6"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Masalan: So'z va uning ma'nosi juftligi"
+          />
+
+          <Divider className="my-4" />
+
+          <Typography variant="subtitle1" className="mb-4 text-gray-700">
+            Savollar va javoblar juftligini kiriting. O'ng ustunda savol yoki
+            tushuncha, chap ustunda unga mos keluvchi javob yoki ma'no bo'lishi
+            kerak.
+          </Typography>
+
+          {pairs.map((pair, index) => (
+            <Paper key={index} elevation={1} className="p-4 mb-4">
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={5}>
+                  <TextField
+                    label="Javob"
+                    variant="outlined"
+                    fullWidth
+                    value={pair.answer}
+                    onChange={(e) =>
+                      handlePairChange(index, "answer", e.target.value)
+                    }
+                    placeholder="Javob yoki ma'no"
+                    helperText="Bu o'yinda chap ustunda ko'rinadi"
+                  />
                 </Grid>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleAddQuestion}
-                >
-                  Juftliklarni tasdiqlash
-                </Button>
-              </>
-            ) : (
-              <>
-                <Typography variant="subtitle1" className="mb-2">
-                  Juftliklarni tasdiqlang
-                </Typography>
-                <div className="mb-4">
-                  {options.map((opt, index) => (
-                    <Paper key={index} className="p-2 mb-2">
-                      <Typography>
-                        {index + 1}. {opt.left} → {opt.right}
-                      </Typography>
-                    </Paper>
-                  ))}
-                </div>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleConfirmPairs}
-                >
-                  Savolni qo'shish
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={() => setIsPairing(false)}
-                  className="ml-2"
-                >
-                  O'zgartirish
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
 
-        {questionsList.length > 0 && (
-          <div className="mb-6">
-            <Typography variant="h6" className="mb-2 font-semibold">
-              Qo'shilgan savollar
-            </Typography>
-            <div className="space-y-3">
-              {questionsList.map((q, index) => (
-                <Paper
-                  key={index}
-                  className="p-4 border border-gray-200 shadow-sm"
-                >
-                  <Typography className="font-medium">
-                    {index + 1}. {q.questionText}
-                  </Typography>
-                  <ul className="pl-5 mt-2 text-gray-600 list-disc">
-                    {q.options
-                      .filter((opt) => opt.group === 1)
-                      .map((opt, idx) => (
-                        <li key={idx}>
-                          {opt.text} → {opt.match}
-                        </li>
-                      ))}
-                  </ul>
-                </Paper>
-              ))}
-            </div>
-          </div>
+                <Grid item xs={2} className="flex justify-center">
+                  <Typography variant="h6">↔</Typography>
+                </Grid>
+
+                <Grid item xs={5} className="flex flex-row items-center">
+                  <TextField
+                    label="Savol"
+                    variant="outlined"
+                    fullWidth
+                    value={pair.question}
+                    onChange={(e) =>
+                      handlePairChange(index, "question", e.target.value)
+                    }
+                    placeholder="Savol yoki tushuncha"
+                    helperText="Bu o'yinda o'ng ustunda ko'rinadi"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => removePair(index)}
+                            edge="end"
+                            color="error"
+                            size="small"
+                          >
+                            <FiMinus />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+          ))}
+
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<FiPlus />}
+            onClick={addPair}
+            className="mt-2 mb-4"
+          >
+            Yangi juftlik qo'shish
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Button
+        variant="contained"
+        color="primary"
+        fullWidth
+        size="large"
+        onClick={handleSubmit}
+        disabled={loading}
+      >
+        {loading ? (
+          <CircularProgress size={24} color="inherit" />
+        ) : (
+          "Testni saqlash"
         )}
-
-        <Button
-          variant="contained"
-          color="success"
-          onClick={handleSubmit}
-          disabled={loading}
-          fullWidth
-          className="mt-4"
-        >
-          {loading ? (
-            <CircularProgress size={24} color="inherit" />
-          ) : (
-            "Testni saqlash"
-          )}
-        </Button>
-      </div>
+      </Button>
     </div>
   );
 };

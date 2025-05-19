@@ -1,3 +1,4 @@
+// Updated src/pages/create-video.jsx
 import React, { useState } from "react";
 import axios from "../services/api";
 import {
@@ -38,6 +39,7 @@ function CreateVideo() {
     overall: 0,
   });
   const [uploadStage, setUploadStage] = useState(""); // 'video', 'server', 'complete'
+  const [processingData, setProcessingData] = useState(false);
 
   const navigate = useNavigate();
 
@@ -162,8 +164,10 @@ function CreateVideo() {
         data.append("presentations", file);
 
       // Upload to our server with progress tracking
-      await axios.post("/api/upload", data, {
-        onUploadProgress: (progressEvent) => {
+      const serverResponse = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (progressEvent) => {
           if (progressEvent.lengthComputable) {
             const percentComplete = Math.round(
               (progressEvent.loaded / progressEvent.total) * 100
@@ -174,22 +178,42 @@ function CreateVideo() {
               overall: 70 + Math.round(percentComplete * 0.3), // Server upload is 30% of overall progress
             }));
           }
-        },
+        });
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setUploadProgress({
+              video: 100,
+              server: 100,
+              overall: 100,
+            });
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(`HTTP Error: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error"));
+
+        xhr.open("POST", `${axios.defaults.baseURL}/api/upload`);
+        xhr.setRequestHeader(
+          "Authorization",
+          `Bearer ${localStorage.getItem("ziyo-jwt")}`
+        );
+        xhr.send(data);
       });
 
       // Set upload as complete
       setUploadStage("complete");
-      setUploadProgress({
-        video: 100,
-        server: 100,
-        overall: 100,
-      });
 
-      // Short delay to ensure user sees 100% progress
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Processing finished
+      setProcessingData(false);
 
       // Success!
       toast.success("Video muvaffaqiyatli yuklandi! ✅");
+
+      // Short delay to ensure user sees 100% progress
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       navigate("/");
     } catch (err) {
       console.error(err);
@@ -430,7 +454,7 @@ function CreateVideo() {
               )}
 
               <Button
-                disabled={isLoading}
+                disabled={isLoading || processingData}
                 variant="contained"
                 type="submit"
                 color="primary"
@@ -441,7 +465,11 @@ function CreateVideo() {
                   ) : null
                 }
               >
-                {isLoading ? `Yuklanmoqda...` : "Yuklash"}
+                {isLoading
+                  ? `Yuklanmoqda... ${uploadProgress.overall}%`
+                  : processingData
+                  ? "Ma'lumotlar qayta ishlanmoqda..."
+                  : "Yuklash"}
               </Button>
 
               {success && <Alert severity="success">{success}</Alert>}

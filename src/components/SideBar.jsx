@@ -1,3 +1,4 @@
+// Updated src/components/SideBar.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,6 +10,7 @@ import {
   FiSettings,
   FiBookOpen,
   FiBell,
+  FiVideo,
 } from "react-icons/fi";
 import { Logo } from "../assets";
 import axios from "axios";
