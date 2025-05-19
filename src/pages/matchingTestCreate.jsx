@@ -1,4 +1,4 @@
-// Updated src/pages/matchingTestCreate.jsx
+// Improved src/pages/matchingTestCreate.jsx
 import React, { useState } from "react";
 import {
   TextField,
@@ -12,8 +12,15 @@ import {
   IconButton,
   Divider,
   InputAdornment,
+  Box,
 } from "@mui/material";
-import { FiChevronLeft, FiPlus, FiMinus } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiPlus,
+  FiMinus,
+  FiCheck,
+  FiArrowRight,
+} from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "../services/api";
@@ -114,15 +121,43 @@ const AddMatchingTest = () => {
 
           <Divider className="my-4" />
 
-          <Typography variant="subtitle1" className="mb-4 text-gray-700">
-            Savollar va javoblar juftligini kiriting. O'ng ustunda savol yoki
-            tushuncha, chap ustunda unga mos keluvchi javob yoki ma'no bo'lishi
-            kerak.
-          </Typography>
+          <Box className="mb-5 p-3 bg-blue-50 rounded-lg">
+            <Typography
+              variant="subtitle1"
+              className="mb-2 text-gray-700 font-medium"
+            >
+              Juftliklarni qo'shish uchun ko'rsatmalar:
+            </Typography>
+            <ul className="list-disc pl-5 text-gray-700">
+              <li className="mb-1">
+                <strong>O'ng ustun (Savol):</strong> Talaba tomonidan
+                o'qiladigan savol yoki tushuncha
+              </li>
+              <li className="mb-1">
+                <strong>Chap ustun (Javob):</strong> Savol/tushunchaga mos
+                keladigan to'g'ri javob
+              </li>
+              <li>
+                Test jarayonida talaba chap ustundan bir javobni, o'ng ustundan
+                unga mos keluvchi savolni tanlaydi
+              </li>
+            </ul>
+          </Box>
 
           {pairs.map((pair, index) => (
-            <Paper key={index} elevation={1} className="p-4 mb-4">
-              <Grid container spacing={2} alignItems="center">
+            <Paper
+              key={index}
+              elevation={1}
+              className="p-4 mb-4 border border-gray-200"
+            >
+              <Typography
+                variant="subtitle2"
+                className="mb-3 text-gray-500 text-center"
+              >
+                Juftlik #{index + 1}
+              </Typography>
+
+              <Grid container spacing={3} alignItems="center">
                 <Grid item xs={5}>
                   <TextField
                     label="Javob"
@@ -132,13 +167,13 @@ const AddMatchingTest = () => {
                     onChange={(e) =>
                       handlePairChange(index, "answer", e.target.value)
                     }
-                    placeholder="Javob yoki ma'no"
-                    helperText="Bu o'yinda chap ustunda ko'rinadi"
+                    placeholder="To'g'ri javob"
+                    helperText="Chap ustunda ko'rinadi"
                   />
                 </Grid>
 
                 <Grid item xs={2} className="flex justify-center">
-                  <Typography variant="h6">↔</Typography>
+                  <FiArrowRight size={24} className="text-blue-500" />
                 </Grid>
 
                 <Grid item xs={5} className="flex flex-row items-center">
@@ -151,7 +186,7 @@ const AddMatchingTest = () => {
                       handlePairChange(index, "question", e.target.value)
                     }
                     placeholder="Savol yoki tushuncha"
-                    helperText="Bu o'yinda o'ng ustunda ko'rinadi"
+                    helperText="O'ng ustunda ko'rinadi"
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -191,12 +226,11 @@ const AddMatchingTest = () => {
         size="large"
         onClick={handleSubmit}
         disabled={loading}
+        startIcon={
+          loading ? <CircularProgress size={20} color="inherit" /> : <FiCheck />
+        }
       >
-        {loading ? (
-          <CircularProgress size={24} color="inherit" />
-        ) : (
-          "Testni saqlash"
-        )}
+        {loading ? "Saqlanmoqda..." : "Testni saqlash"}
       </Button>
     </div>
   );

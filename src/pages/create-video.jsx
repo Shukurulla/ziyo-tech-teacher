@@ -1,4 +1,4 @@
-// Updated src/pages/create-video.jsx
+// Improved src/pages/create-video.jsx
 import React, { useState } from "react";
 import axios from "../services/api";
 import {
@@ -40,6 +40,8 @@ function CreateVideo() {
   });
   const [uploadStage, setUploadStage] = useState(""); // 'video', 'server', 'complete'
   const [processingData, setProcessingData] = useState(false);
+  const [serverFilesCompleted, setServerFilesCompleted] = useState(0);
+  const [totalServerFiles, setTotalServerFiles] = useState(0);
 
   const navigate = useNavigate();
 
@@ -156,12 +158,23 @@ function CreateVideo() {
       data.append("description", formData.description);
       data.append("video", JSON.stringify(videoLink));
 
+      // Calculate total files for progress tracking
+      const totalFiles = formData.audios.length + formData.presentations.length;
+      setTotalServerFiles(totalFiles);
+      setServerFilesCompleted(0);
+
       // Add audio files
-      for (const file of formData.audios) data.append("audios", file);
+      for (const file of formData.audios) {
+        data.append("audios", file);
+      }
 
       // Add presentation files
-      for (const file of formData.presentations)
+      for (const file of formData.presentations) {
         data.append("presentations", file);
+      }
+
+      // Set the server processing flag
+      setProcessingData(true);
 
       // Upload to our server with progress tracking
       const serverResponse = await new Promise((resolve, reject) => {
@@ -206,20 +219,22 @@ function CreateVideo() {
       // Set upload as complete
       setUploadStage("complete");
 
-      // Processing finished
-      setProcessingData(false);
+      // Set a loading delay to ensure files are fully processed on the server
+      setTimeout(() => {
+        // Processing finished
+        setProcessingData(false);
 
-      // Success!
-      toast.success("Video muvaffaqiyatli yuklandi! ✅");
+        // Success!
+        toast.success("Video muvaffaqiyatli yuklandi! ✅");
 
-      // Short delay to ensure user sees 100% progress
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      navigate("/");
+        // Navigate to home
+        navigate("/");
+      }, 1500);
     } catch (err) {
       console.error(err);
       setError("Yuklashda xatolik yuz berdi.❌");
       toast.error("Yuklashda xatolik yuz berdi.❌");
-    } finally {
+      setProcessingData(false);
       setIsLoading(false);
     }
   };
@@ -230,7 +245,9 @@ function CreateVideo() {
       case "video":
         return "Video API.video serveriga yuklanmoqda...";
       case "server":
-        return "Audio va taqdimotlar serverga yuklanmoqda...";
+        return processingData
+          ? "Fayllar serverda qayta ishlanmoqda..."
+          : "Audio va taqdimotlar serverga yuklanmoqda...";
       case "complete":
         return "Yuklash yakunlandi! Sahifaga yo'naltirilmoqdasiz...";
       default:
@@ -446,6 +463,16 @@ function CreateVideo() {
                       <Typography variant="body2" color="success.main" mb={1}>
                         ✓ Audio va taqdimotlar yuklandi
                       </Typography>
+                      {processingData && (
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", mb: 1 }}
+                        >
+                          <CircularProgress size={16} sx={{ mr: 1 }} />
+                          <Typography variant="body2">
+                            Ma'lumotlar qayta ishlanmoqda...
+                          </Typography>
+                        </Box>
+                      )}
                     </>
                   )}
 

@@ -1,4 +1,4 @@
-// src/pages/VideoManagement.jsx
+// Enhanced src/pages/dashboard.jsx for teacher
 import React, { useState, useEffect } from "react";
 import axios from "../services/api";
 import {
@@ -15,9 +15,14 @@ import {
   CircularProgress,
   Grid,
   Box,
+  FormControl,
+  InputLabel,
+  IconButton,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { FiTrash2, FiEdit, FiPlus } from "react-icons/fi";
+import { FiTrash2, FiEdit, FiPlus, FiX } from "react-icons/fi";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteIcon from "@mui/icons-material/Delete";
 import toast from "react-hot-toast";
 
 const VideoManagement = () => {
@@ -29,8 +34,15 @@ const VideoManagement = () => {
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
+    audios: [],
+    presentations: [],
+    newAudios: [],
+    newPresentations: [],
   });
   const navigate = useNavigate();
+  const [audioUploads, setAudioUploads] = useState([]);
+  const [presentationUploads, setPresentationUploads] = useState([]);
+  const [updateLoading, setUpdateLoading] = useState(false);
 
   useEffect(() => {
     fetchVideos();
@@ -56,34 +68,82 @@ const VideoManagement = () => {
     setEditForm({
       title: video.title,
       description: video.description,
+      audios: Object.keys(video.audios || {}).map((key) => ({
+        name: key,
+        url: video.audios[key],
+      })),
+      presentations: Object.keys(video.presentations || {}).map((key) => ({
+        name: key,
+        url: video.presentations[key],
+      })),
+      newAudios: [],
+      newPresentations: [],
     });
+    setAudioUploads([]);
+    setPresentationUploads([]);
     setEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (video) => {
+  const handleDeleteClick = (video, e) => {
+    e.stopPropagation(); // Prevent navigation when clicking the delete button
     setSelectedVideo(video);
     setDeleteDialogOpen(true);
   };
 
   const handleEditSubmit = async () => {
     try {
-      const response = await axios.put(
-        `/api/video/${selectedVideo._id}`,
-        editForm
-      );
-      if (response.data.status === "success") {
-        toast.success("Video muvaffaqiyatli yangilandi");
-        setEditDialogOpen(false);
-        fetchVideos();
+      setUpdateLoading(true);
+
+      // First, update the basic info
+      const basicResponse = await axios.put(`/api/video/${selectedVideo._id}`, {
+        title: editForm.title,
+        description: editForm.description,
+      });
+
+      // If there are new files to upload
+      if (
+        editForm.newAudios.length > 0 ||
+        editForm.newPresentations.length > 0
+      ) {
+        const formData = new FormData();
+
+        // Add basic info
+        formData.append("videoId", selectedVideo._id);
+        formData.append("title", editForm.title);
+        formData.append("description", editForm.description);
+
+        // Add new audio files
+        editForm.newAudios.forEach((file) => {
+          formData.append("audios", file);
+        });
+
+        // Add new presentation files
+        editForm.newPresentations.forEach((file) => {
+          formData.append("presentations", file);
+        });
+
+        // Upload new files
+        await axios.post("/api/video/update-files", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
       }
+
+      toast.success("Video muvaffaqiyatli yangilandi");
+      setEditDialogOpen(false);
+      fetchVideos();
     } catch (error) {
       toast.error("Videoni yangilashda xatolik yuz berdi");
       console.error("Error updating video:", error);
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
   const handleDeleteConfirm = async () => {
     try {
+      setUpdateLoading(true);
       const response = await axios.delete(`/api/video/${selectedVideo._id}`);
       if (response.data.status === "success") {
         toast.success("Video muvaffaqiyatli o'chirildi");
@@ -93,6 +153,8 @@ const VideoManagement = () => {
     } catch (error) {
       toast.error("Videoni o'chirishda xatolik yuz berdi");
       console.error("Error deleting video:", error);
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -102,6 +164,55 @@ const VideoManagement = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleFileChange = (e, type) => {
+    const files = Array.from(e.target.files);
+
+    if (type === "audios") {
+      setEditForm((prev) => ({
+        ...prev,
+        newAudios: [...prev.newAudios, ...files],
+      }));
+      setAudioUploads((prev) => [...prev, ...files]);
+    } else {
+      setEditForm((prev) => ({
+        ...prev,
+        newPresentations: [...prev.newPresentations, ...files],
+      }));
+      setPresentationUploads((prev) => [...prev, ...files]);
+    }
+  };
+
+  const removeExistingFile = (type, index) => {
+    setEditForm((prev) => {
+      const updatedFiles = [...prev[type]];
+      updatedFiles.splice(index, 1);
+      return {
+        ...prev,
+        [type]: updatedFiles,
+      };
+    });
+  };
+
+  const removeNewFile = (type, index) => {
+    const stateKey = type === "audios" ? "newAudios" : "newPresentations";
+    const uploadsKey = type === "audios" ? audioUploads : presentationUploads;
+    const setUploadsKey =
+      type === "audios" ? setAudioUploads : setPresentationUploads;
+
+    setEditForm((prev) => {
+      const updatedFiles = [...prev[stateKey]];
+      updatedFiles.splice(index, 1);
+      return {
+        ...prev,
+        [stateKey]: updatedFiles,
+      };
+    });
+
+    const updatedUploads = [...uploadsKey];
+    updatedUploads.splice(index, 1);
+    setUploadsKey(updatedUploads);
   };
 
   if (loading) {
@@ -130,9 +241,9 @@ const VideoManagement = () => {
 
       <div className="row">
         {videos.map((video) => (
-          <div className="col-lg-4 col-md-6 col-sm-12 mt-4 ">
+          <div className="col-lg-4 col-md-6 col-sm-12 mt-4" key={video._id}>
             <Card
-              className="h-full flex flex-col cursor-pointer "
+              className="h-full flex flex-col cursor-pointer"
               onClick={() => navigate(`/video/${video._id}`)}
             >
               <div className="relative h-48 overflow-hidden">
@@ -158,7 +269,10 @@ const VideoManagement = () => {
                     variant="outlined"
                     color="primary"
                     startIcon={<FiEdit />}
-                    onClick={() => handleEditClick(video)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(video);
+                    }}
                   >
                     Tahrirlash
                   </Button>
@@ -166,7 +280,7 @@ const VideoManagement = () => {
                     variant="outlined"
                     color="error"
                     startIcon={<FiTrash2 />}
-                    onClick={() => handleDeleteClick(video)}
+                    onClick={(e) => handleDeleteClick(video, e)}
                   >
                     O'chirish
                   </Button>
@@ -177,10 +291,15 @@ const VideoManagement = () => {
         ))}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+      {/* Enhanced Edit Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle>Videoni Tahrirlash</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <TextField
             autoFocus
             margin="dense"
@@ -190,7 +309,9 @@ const VideoManagement = () => {
             fullWidth
             value={editForm.title}
             onChange={handleInputChange}
+            className="mb-4"
           />
+
           <TextField
             margin="dense"
             name="description"
@@ -201,12 +322,165 @@ const VideoManagement = () => {
             rows={4}
             value={editForm.description}
             onChange={handleInputChange}
+            className="mb-4"
           />
+
+          {/* Existing Audio Files */}
+          <Typography variant="h6" className="mt-4 mb-2">
+            Mavjud audio fayllar
+          </Typography>
+          {editForm.audios.length > 0 ? (
+            <div className="mb-4">
+              {editForm.audios.map((audio, index) => (
+                <Box
+                  key={index}
+                  className="flex items-center justify-between p-2 mb-2 border rounded"
+                >
+                  <Typography>{audio.name}</Typography>
+                  <IconButton
+                    onClick={() => removeExistingFile("audios", index)}
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </div>
+          ) : (
+            <Typography variant="body2" color="textSecondary" className="mb-3">
+              Mavjud audio fayllar yo'q
+            </Typography>
+          )}
+
+          {/* New Audio Upload */}
+          <FormControl fullWidth className="mb-4">
+            <input
+              accept="audio/*"
+              style={{ display: "none" }}
+              id="new-audio-upload"
+              type="file"
+              multiple
+              onChange={(e) => handleFileChange(e, "audios")}
+            />
+            <label htmlFor="new-audio-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<CloudUploadIcon />}
+              >
+                Yangi audio fayllar qo'shish
+              </Button>
+            </label>
+          </FormControl>
+
+          {/* New Audio Files List */}
+          {audioUploads.length > 0 && (
+            <div className="mb-4">
+              <Typography variant="subtitle1" className="mb-2">
+                Yangi qo'shiladigan audio fayllar:
+              </Typography>
+              {audioUploads.map((file, index) => (
+                <Box
+                  key={index}
+                  className="flex items-center justify-between p-2 mb-2 border rounded"
+                >
+                  <Typography>{file.name}</Typography>
+                  <IconButton
+                    onClick={() => removeNewFile("audios", index)}
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </div>
+          )}
+
+          {/* Existing Presentation Files */}
+          <Typography variant="h6" className="mt-4 mb-2">
+            Mavjud prezentatsiya fayllar
+          </Typography>
+          {editForm.presentations.length > 0 ? (
+            <div className="mb-4">
+              {editForm.presentations.map((presentation, index) => (
+                <Box
+                  key={index}
+                  className="flex items-center justify-between p-2 mb-2 border rounded"
+                >
+                  <Typography>{presentation.name}</Typography>
+                  <IconButton
+                    onClick={() => removeExistingFile("presentations", index)}
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </div>
+          ) : (
+            <Typography variant="body2" color="textSecondary" className="mb-3">
+              Mavjud prezentatsiya fayllar yo'q
+            </Typography>
+          )}
+
+          {/* New Presentation Upload */}
+          <FormControl fullWidth className="mb-4">
+            <input
+              accept=".pptx,.ppt"
+              style={{ display: "none" }}
+              id="new-presentation-upload"
+              type="file"
+              multiple
+              onChange={(e) => handleFileChange(e, "presentations")}
+            />
+            <label htmlFor="new-presentation-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<CloudUploadIcon />}
+              >
+                Yangi prezentatsiya fayllar qo'shish
+              </Button>
+            </label>
+          </FormControl>
+
+          {/* New Presentation Files List */}
+          {presentationUploads.length > 0 && (
+            <div className="mb-4">
+              <Typography variant="subtitle1" className="mb-2">
+                Yangi qo'shiladigan prezentatsiya fayllar:
+              </Typography>
+              {presentationUploads.map((file, index) => (
+                <Box
+                  key={index}
+                  className="flex items-center justify-between p-2 mb-2 border rounded"
+                >
+                  <Typography>{file.name}</Typography>
+                  <IconButton
+                    onClick={() => removeNewFile("presentations", index)}
+                    color="error"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              ))}
+            </div>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Bekor qilish</Button>
-          <Button onClick={handleEditSubmit} color="primary">
-            Saqlash
+          <Button
+            onClick={() => setEditDialogOpen(false)}
+            disabled={updateLoading}
+          >
+            Bekor qilish
+          </Button>
+          <Button
+            onClick={handleEditSubmit}
+            color="primary"
+            disabled={updateLoading}
+            startIcon={updateLoading ? <CircularProgress size={20} /> : null}
+          >
+            {updateLoading ? "Yangilanmoqda..." : "Saqlash"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -228,11 +502,20 @@ const VideoManagement = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={updateLoading}
+          >
             Bekor qilish
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" autoFocus>
-            O'chirish
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            autoFocus
+            disabled={updateLoading}
+            startIcon={updateLoading ? <CircularProgress size={20} /> : null}
+          >
+            {updateLoading ? "O'chirilmoqda..." : "O'chirish"}
           </Button>
         </DialogActions>
       </Dialog>

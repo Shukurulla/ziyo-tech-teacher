@@ -1,3 +1,4 @@
+// Enhanced TeacherSubmissions component for notifications
 import React, { useEffect, useState } from "react";
 import axios from "../services/api";
 import {
@@ -15,6 +16,7 @@ import {
   Badge,
   Chip,
   CircularProgress,
+  Avatar,
 } from "@mui/material";
 import {
   FaDownload,
@@ -22,6 +24,10 @@ import {
   FaChalkboardTeacher,
   FaVideo,
   FaFile,
+  FaBell,
+  FaFilter,
+  FaCheckCircle,
+  FaRegClock,
 } from "react-icons/fa";
 import { convertToHttps } from "../utils";
 
@@ -54,6 +60,7 @@ const TeacherSubmissions = () => {
   const [tabValue, setTabValue] = useState(0);
   const [videoData, setVideoData] = useState([]);
   const [practiceData, setPracticeData] = useState([]);
+  const [sortBy, setSortBy] = useState("unrated-first"); // "unrated-first", "newest", "oldest"
 
   // Get counts for badges
   const getVideoCount = () => {
@@ -70,21 +77,21 @@ const TeacherSubmissions = () => {
 
   const fetchSubmissions = async () => {
     try {
-      const res = await axios.get("/api/submissions/all", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("ziyo-jwt")}`,
-        },
-      });
+      setLoading(true);
+      const res = await axios.get("/api/submissions/all");
 
       // Get all submissions
       const allSubmissions = res.data.data;
-      setSubmissions(allSubmissions);
+
+      // Sort submissions based on user preference
+      const sortedSubmissions = sortSubmissions(allSubmissions, sortBy);
+      setSubmissions(sortedSubmissions);
 
       // Group by video and practice
       const videoSubmissions = {};
       const practiceSubmissions = {};
 
-      allSubmissions.forEach((submission) => {
+      sortedSubmissions.forEach((submission) => {
         if (submission.type === "videoWork") {
           if (!videoSubmissions[submission.title]) {
             videoSubmissions[submission.title] = [];
@@ -121,15 +128,47 @@ const TeacherSubmissions = () => {
         }
       );
 
+      // Sort groups by unrated count (highest first)
+      videoDataArray.sort((a, b) => b.unratedCount - a.unratedCount);
+      practiceDataArray.sort((a, b) => b.unratedCount - a.unratedCount);
+
       setVideoData(videoDataArray);
       setPracticeData(practiceDataArray);
 
       // Set filtered submissions based on tab
-      filterSubmissionsByTab(tabValue, allSubmissions);
+      filterSubmissionsByTab(tabValue, sortedSubmissions);
     } catch (err) {
+      console.error("Vazifalarni yuklashda xatolik:", err);
       setError("Vazifalarni yuklashda xatolik: " + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sort submissions function
+  const sortSubmissions = (submissions, sortOption) => {
+    const submissionsCopy = [...submissions];
+
+    switch (sortOption) {
+      case "unrated-first":
+        return submissionsCopy.sort((a, b) => {
+          // Sort by rating status first (unrated first)
+          if (a.isSended !== b.isSended) {
+            return a.isSended ? 1 : -1;
+          }
+          // Then by date (newest first)
+          return new Date(b.submittedAt) - new Date(a.submittedAt);
+        });
+      case "newest":
+        return submissionsCopy.sort(
+          (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
+        );
+      case "oldest":
+        return submissionsCopy.sort(
+          (a, b) => new Date(a.submittedAt) - new Date(b.submittedAt)
+        );
+      default:
+        return submissionsCopy;
     }
   };
 
@@ -157,6 +196,13 @@ const TeacherSubmissions = () => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     filterSubmissionsByTab(newValue);
+  };
+
+  const handleSortChange = (option) => {
+    setSortBy(option);
+    const sortedSubmissions = sortSubmissions(submissions, option);
+    setSubmissions(sortedSubmissions);
+    filterSubmissionsByTab(tabValue, sortedSubmissions);
   };
 
   useEffect(() => {
@@ -191,7 +237,7 @@ const TeacherSubmissions = () => {
       setOpen(false);
       fetchSubmissions(); // Reload the data
     } catch (err) {
-      setError("Baholashda xatolik: " + err.message);
+      console.error("Baholashda xatolik:", err);
     }
   };
 
@@ -202,233 +248,195 @@ const TeacherSubmissions = () => {
       </Box>
     );
 
-  if (error)
+  if (error) {
     return (
       <Typography className="text-red-500 text-center">{error}</Typography>
     );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
-        <Typography
-          variant="h5"
-          className="font-bold text-gray-800 mb-6 flex items-center gap-2"
-        >
-          <FaChalkboardTeacher size={24} /> Talabalardan kelgan vazifalar
-        </Typography>
-
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            aria-label="submission tabs"
-            centered
-          >
-            <Tab label="Hammasi" id="tab-0" aria-controls="tabpanel-0" />
-            <Tab
-              label={
-                <Badge badgeContent={getVideoCount()} color="error">
-                  Video Vazifalar
-                </Badge>
-              }
-              id="tab-1"
-              aria-controls="tabpanel-1"
-              icon={<FaVideo />}
-              iconPosition="start"
-            />
-            <Tab
-              label={
-                <Badge badgeContent={getPracticeCount()} color="error">
-                  Praktika Vazifalar
-                </Badge>
-              }
-              id="tab-2"
-              aria-controls="tabpanel-2"
-              icon={<FaFile />}
-              iconPosition="start"
-            />
-          </Tabs>
-        </Box>
-
-        {/* Tab Panels */}
-        <TabPanel value={tabValue} index={0}>
-          {filteredSubmissions.length === 0 ? (
-            <Typography className="text-center text-gray-500 py-4">
-              Vazifalar mavjud emas
+      <div className="max-w-5xl mx-auto">
+        <Card className="shadow-lg rounded-lg">
+          <CardContent className="p-6">
+            <Typography
+              variant="h5"
+              className="font-bold text-gray-800 mb-6 flex items-center gap-2"
+            >
+              <FaChalkboardTeacher size={24} /> Talabalardan kelgan vazifalar
             </Typography>
-          ) : (
-            <div>
-              {/* Render by submission date */}
-              {filteredSubmissions
-                .sort(
-                  (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
-                )
-                .map((submission, idx) => (
-                  <div
-                    key={idx}
-                    className={`mb-4 p-4 rounded-lg ${
-                      submission.isSended
-                        ? "bg-gray-50"
-                        : "bg-blue-50 border-l-4 border-blue-500"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <Typography
-                          variant="h6"
-                          className="font-semibold text-gray-800"
-                        >
-                          {submission.title}
-                        </Typography>
-                        <Typography variant="body2" className="text-gray-600">
-                          Talaba: {submission.student}
-                        </Typography>
-                        <Typography variant="body2" className="text-gray-600">
-                          Yuborilgan vaqt:{" "}
-                          {new Date(submission.submittedAt).toLocaleString()}
-                        </Typography>
-                        {submission.rating && (
-                          <Box className="flex items-center mt-1">
-                            <Typography variant="body2" className="mr-1">
-                              Baho:
-                            </Typography>
-                            <Rating
-                              value={submission.rating}
-                              readOnly
-                              size="small"
-                              precision={0.5}
-                            />
-                          </Box>
-                        )}
-                      </div>
-                      <Chip
-                        color={
-                          submission.type === "videoWork"
-                            ? "primary"
-                            : "secondary"
-                        }
-                        label={
-                          submission.type === "videoWork" ? "Video" : "Praktika"
-                        }
-                        variant="outlined"
-                        size="small"
-                      />
-                    </div>
 
-                    <div>
-                      {submission.files.map((file, fileIdx) => (
-                        <div
-                          key={fileIdx}
-                          className="flex justify-between items-center p-2 bg-white rounded-lg mb-2 shadow-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FaFile className="text-blue-500" />
-                            <span className="text-sm">
-                              {file.fileName || file.fileUrl.split("/").pop()}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<FaDownload />}
-                              href={convertToHttps(file.fileUrl)}
-                              target="_blank"
-                              className="text-blue-600 border-blue-600"
-                            >
-                              Yuklab olish
-                            </Button>
-
-                            {!submission.isSended && (
-                              <Button
-                                variant="contained"
-                                size="small"
-                                color="primary"
-                                onClick={() => handleEvaluate(submission, file)}
-                              >
-                                Baholash
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          {videoData.length === 0 ? (
-            <Typography className="text-center text-gray-500 py-4">
-              Video vazifalari mavjud emas
-            </Typography>
-          ) : (
-            <div>
-              {videoData.map((group) => (
-                <Card key={group.title} className="mb-4 shadow-sm">
-                  <CardContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2,
-                      }}
+            {/* Tabs and sorting options */}
+            <Box className="flex flex-col md:flex-row justify-between items-center mb-4">
+              <Tabs
+                value={tabValue}
+                onChange={handleTabChange}
+                aria-label="submission tabs"
+                className="mb-3 md:mb-0"
+              >
+                <Tab
+                  label="Hammasi"
+                  id="tab-0"
+                  aria-controls="tabpanel-0"
+                  icon={
+                    <Badge
+                      badgeContent={getVideoCount() + getPracticeCount()}
+                      color="error"
                     >
-                      <Typography
-                        variant="h6"
-                        className="font-semibold flex items-center gap-2"
-                      >
-                        <FaVideo className="text-blue-500" />
-                        {group.title}
-                      </Typography>
-                      <Badge badgeContent={group.unratedCount} color="error">
-                        <Chip
-                          label={`${group.submissions.length} ta vazifa`}
-                          color="primary"
-                          variant="outlined"
-                        />
-                      </Badge>
-                    </Box>
+                      <FaBell />
+                    </Badge>
+                  }
+                  iconPosition="start"
+                />
+                <Tab
+                  label="Video"
+                  id="tab-1"
+                  aria-controls="tabpanel-1"
+                  icon={
+                    <Badge badgeContent={getVideoCount()} color="error">
+                      <FaVideo />
+                    </Badge>
+                  }
+                  iconPosition="start"
+                />
+                <Tab
+                  label="Praktika"
+                  id="tab-2"
+                  aria-controls="tabpanel-2"
+                  icon={
+                    <Badge badgeContent={getPracticeCount()} color="error">
+                      <FaFile />
+                    </Badge>
+                  }
+                  iconPosition="start"
+                />
+              </Tabs>
 
-                    <Divider className="mb-3" />
+              <Box className="flex items-center gap-2">
+                <FaFilter className="text-gray-500" />
+                <Button
+                  variant={
+                    sortBy === "unrated-first" ? "contained" : "outlined"
+                  }
+                  size="small"
+                  color="primary"
+                  onClick={() => handleSortChange("unrated-first")}
+                >
+                  Baholanmaganlar
+                </Button>
+                <Button
+                  variant={sortBy === "newest" ? "contained" : "outlined"}
+                  size="small"
+                  color="primary"
+                  onClick={() => handleSortChange("newest")}
+                >
+                  Eng yangi
+                </Button>
+                <Button
+                  variant={sortBy === "oldest" ? "contained" : "outlined"}
+                  size="small"
+                  color="primary"
+                  onClick={() => handleSortChange("oldest")}
+                >
+                  Eng eski
+                </Button>
+              </Box>
+            </Box>
 
-                    {group.submissions.map((submission, idx) => (
-                      <Box key={idx} className="mb-3 p-3 bg-gray-50 rounded">
-                        <Typography variant="subtitle1" className="font-medium">
-                          {submission.student}
-                        </Typography>
+            <Divider className="mb-4" />
 
-                        <Typography
-                          variant="body2"
-                          className="text-gray-500 mb-2"
-                        >
-                          Yuborilgan:{" "}
-                          {new Date(submission.submittedAt).toLocaleString()}
-                        </Typography>
-
-                        {submission.rating && (
-                          <Box className="flex items-center mb-2">
-                            <Typography variant="body2" className="mr-1">
-                              Baho:
-                            </Typography>
-                            <Rating
-                              value={submission.rating}
-                              readOnly
-                              size="small"
-                              precision={0.5}
-                            />
+            {/* Tab Panels */}
+            <TabPanel value={tabValue} index={0}>
+              {filteredSubmissions.length === 0 ? (
+                <Typography className="text-center text-gray-500 py-4">
+                  Vazifalar mavjud emas
+                </Typography>
+              ) : (
+                <div>
+                  {/* Render all submissions */}
+                  {filteredSubmissions.map((submission, idx) => (
+                    <Card
+                      key={idx}
+                      className={`mb-4 ${
+                        submission.isSended
+                          ? "border border-gray-200"
+                          : "border-l-4 border-blue-500 shadow-md"
+                      }`}
+                      variant="outlined"
+                    >
+                      <CardContent>
+                        <Box className="flex justify-between items-start">
+                          <Box className="flex items-center gap-3">
+                            {submission.type === "videoWork" ? (
+                              <Avatar className="bg-blue-100 text-blue-700">
+                                <FaVideo />
+                              </Avatar>
+                            ) : (
+                              <Avatar className="bg-green-100 text-green-700">
+                                <FaFile />
+                              </Avatar>
+                            )}
+                            <Box>
+                              <Typography
+                                variant="h6"
+                                className="font-semibold text-gray-800"
+                              >
+                                {submission.title}
+                                {!submission.isSended && (
+                                  <Chip
+                                    label="Yangi"
+                                    size="small"
+                                    color="error"
+                                    className="ml-2"
+                                  />
+                                )}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                className="text-gray-600"
+                              >
+                                Talaba: {submission.student}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                className="text-gray-500"
+                              >
+                                Yuborilgan vaqt:{" "}
+                                {new Date(
+                                  submission.submittedAt
+                                ).toLocaleString()}
+                              </Typography>
+                            </Box>
                           </Box>
-                        )}
 
-                        <Box className="mt-2">
+                          <Box className="flex items-center">
+                            {submission.isSended ? (
+                              <Chip
+                                icon={<FaCheckCircle />}
+                                label={`Baholangan: ${
+                                  submission.rating || 0
+                                }/5`}
+                                color="success"
+                                variant="outlined"
+                              />
+                            ) : (
+                              <Chip
+                                icon={<FaRegClock />}
+                                label="Baholanmagan"
+                                color="warning"
+                                variant="outlined"
+                              />
+                            )}
+                          </Box>
+                        </Box>
+
+                        <Divider className="my-3" />
+
+                        <Box className="mt-3">
                           {submission.files.map((file, fileIdx) => (
                             <Box
                               key={fileIdx}
-                              className="flex justify-between items-center p-2 bg-white rounded-lg mb-2 shadow-sm"
+                              className="flex justify-between items-center p-3 bg-gray-50 rounded-lg mb-2 hover:bg-gray-100 transition-colors"
                             >
                               <Typography
                                 variant="body2"
@@ -466,129 +474,289 @@ const TeacherSubmissions = () => {
                             </Box>
                           ))}
                         </Box>
-                      </Box>
-                    ))}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabPanel>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
-          {practiceData.length === 0 ? (
-            <Typography className="text-center text-gray-500 py-4">
-              Praktika vazifalari mavjud emas
-            </Typography>
-          ) : (
-            <div>
-              {practiceData.map((group) => (
-                <Card key={group.title} className="mb-4 shadow-sm">
-                  <CardContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 2,
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        className="font-semibold flex items-center gap-2"
-                      >
-                        <FaFile className="text-green-500" />
-                        {group.title}
-                      </Typography>
-                      <Badge badgeContent={group.unratedCount} color="error">
-                        <Chip
-                          label={`${group.submissions.length} ta vazifa`}
-                          color="secondary"
-                          variant="outlined"
-                        />
-                      </Badge>
-                    </Box>
-
-                    <Divider className="mb-3" />
-
-                    {group.submissions.map((submission, idx) => (
-                      <Box key={idx} className="mb-3 p-3 bg-gray-50 rounded">
-                        <Typography variant="subtitle1" className="font-medium">
-                          {submission.student}
-                        </Typography>
-
-                        <Typography
-                          variant="body2"
-                          className="text-gray-500 mb-2"
-                        >
-                          Yuborilgan:{" "}
-                          {new Date(submission.submittedAt).toLocaleString()}
-                        </Typography>
-
-                        {submission.rating && (
-                          <Box className="flex items-center mb-2">
-                            <Typography variant="body2" className="mr-1">
-                              Baho:
-                            </Typography>
-                            <Rating
-                              value={submission.rating}
-                              readOnly
-                              size="small"
-                              precision={0.5}
+            <TabPanel value={tabValue} index={1}>
+              {videoData.length === 0 ? (
+                <Typography className="text-center text-gray-500 py-4">
+                  Video vazifalari mavjud emas
+                </Typography>
+              ) : (
+                <div className="space-y-6">
+                  {videoData.map((group) => (
+                    <Card key={group.title} className="shadow-sm border">
+                      <CardContent>
+                        <Box className="flex justify-between items-center mb-3">
+                          <Typography
+                            variant="h6"
+                            className="font-semibold flex items-center gap-2"
+                          >
+                            <FaVideo className="text-blue-500" />
+                            {group.title}
+                          </Typography>
+                          <Badge
+                            badgeContent={group.unratedCount}
+                            color="error"
+                          >
+                            <Chip
+                              label={`${group.submissions.length} ta vazifa`}
+                              color="primary"
+                              variant="outlined"
                             />
-                          </Box>
-                        )}
+                          </Badge>
+                        </Box>
 
-                        <Box className="mt-2">
-                          {submission.files.map((file, fileIdx) => (
+                        <Divider className="mb-3" />
+
+                        {group.submissions
+                          .sort((a, b) =>
+                            a.isSended === b.isSended ? 0 : a.isSended ? 1 : -1
+                          )
+                          .map((submission, idx) => (
                             <Box
-                              key={fileIdx}
-                              className="flex justify-between items-center p-2 bg-white rounded-lg mb-2 shadow-sm"
+                              key={idx}
+                              className={`mb-3 p-3 rounded ${
+                                submission.isSended
+                                  ? "bg-gray-50"
+                                  : "bg-blue-50 border-l-3 border-blue-500"
+                              }`}
                             >
-                              <Typography
-                                variant="body2"
-                                className="flex items-center gap-2"
-                              >
-                                <FaFile className="text-green-500" />
-                                {file.fileName || file.fileUrl.split("/").pop()}
-                              </Typography>
-
-                              <Box className="flex gap-2">
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  startIcon={<FaDownload />}
-                                  href={convertToHttps(file.fileUrl)}
-                                  target="_blank"
-                                  className="text-green-600 border-green-600"
+                              <Box className="flex justify-between items-start">
+                                <Typography
+                                  variant="subtitle1"
+                                  className="font-medium"
                                 >
-                                  Yuklab olish
-                                </Button>
+                                  {submission.student}
+                                  {!submission.isSended && (
+                                    <Chip
+                                      label="Yangi"
+                                      size="small"
+                                      color="error"
+                                      className="ml-2"
+                                    />
+                                  )}
+                                </Typography>
 
-                                {!submission.isSended && (
-                                  <Button
-                                    variant="contained"
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+                                >
+                                  {new Date(
+                                    submission.submittedAt
+                                  ).toLocaleString()}
+                                </Typography>
+                              </Box>
+
+                              {submission.rating && (
+                                <Box className="flex items-center mb-2 mt-1">
+                                  <Typography variant="body2" className="mr-1">
+                                    Baho:
+                                  </Typography>
+                                  <Rating
+                                    value={submission.rating}
+                                    readOnly
                                     size="small"
-                                    color="success"
-                                    onClick={() =>
-                                      handleEvaluate(submission, file)
-                                    }
+                                    precision={0.5}
+                                  />
+                                </Box>
+                              )}
+
+                              <Box className="mt-2">
+                                {submission.files.map((file, fileIdx) => (
+                                  <Box
+                                    key={fileIdx}
+                                    className="flex justify-between items-center p-2 bg-white rounded-lg mb-2 shadow-sm"
                                   >
-                                    Baholash
-                                  </Button>
-                                )}
+                                    <Typography
+                                      variant="body2"
+                                      className="flex items-center gap-2"
+                                    >
+                                      <FaFile className="text-blue-500" />
+                                      {file.fileName ||
+                                        file.fileUrl.split("/").pop()}
+                                    </Typography>
+
+                                    <Box className="flex gap-2">
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<FaDownload />}
+                                        href={convertToHttps(file.fileUrl)}
+                                        target="_blank"
+                                        className="text-blue-600 border-blue-600"
+                                      >
+                                        Yuklab olish
+                                      </Button>
+
+                                      {!submission.isSended && (
+                                        <Button
+                                          variant="contained"
+                                          size="small"
+                                          color="primary"
+                                          onClick={() =>
+                                            handleEvaluate(submission, file)
+                                          }
+                                        >
+                                          Baholash
+                                        </Button>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                ))}
                               </Box>
                             </Box>
                           ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={2}>
+              {practiceData.length === 0 ? (
+                <Typography className="text-center text-gray-500 py-4">
+                  Praktika vazifalari mavjud emas
+                </Typography>
+              ) : (
+                <div className="space-y-6">
+                  {practiceData.map((group) => (
+                    <Card key={group.title} className="mb-4 shadow-sm">
+                      <CardContent>
+                        <Box className="flex justify-between items-center mb-2">
+                          <Typography
+                            variant="h6"
+                            className="font-semibold flex items-center gap-2"
+                          >
+                            <FaFile className="text-green-500" />
+                            {group.title}
+                          </Typography>
+                          <Badge
+                            badgeContent={group.unratedCount}
+                            color="error"
+                          >
+                            <Chip
+                              label={`${group.submissions.length} ta vazifa`}
+                              color="secondary"
+                              variant="outlined"
+                            />
+                          </Badge>
                         </Box>
-                      </Box>
-                    ))}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabPanel>
+
+                        <Divider className="mb-3" />
+
+                        {/* Sort submissions - unrated first */}
+                        {group.submissions
+                          .sort((a, b) =>
+                            a.isSended === b.isSended ? 0 : a.isSended ? 1 : -1
+                          )
+                          .map((submission, idx) => (
+                            <Box
+                              key={idx}
+                              className={`mb-3 p-3 rounded ${
+                                submission.isSended
+                                  ? "bg-gray-50"
+                                  : "bg-green-50 border-l-3 border-green-500"
+                              }`}
+                            >
+                              <Box className="flex justify-between items-start">
+                                <Typography
+                                  variant="subtitle1"
+                                  className="font-medium"
+                                >
+                                  {submission.student}
+                                  {!submission.isSended && (
+                                    <Chip
+                                      label="Yangi"
+                                      size="small"
+                                      color="error"
+                                      className="ml-2"
+                                    />
+                                  )}
+                                </Typography>
+
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+                                >
+                                  {new Date(
+                                    submission.submittedAt
+                                  ).toLocaleString()}
+                                </Typography>
+                              </Box>
+
+                              {submission.rating && (
+                                <Box className="flex items-center mb-2 mt-1">
+                                  <Typography variant="body2" className="mr-1">
+                                    Baho:
+                                  </Typography>
+                                  <Rating
+                                    value={submission.rating}
+                                    readOnly
+                                    size="small"
+                                    precision={0.5}
+                                  />
+                                </Box>
+                              )}
+
+                              <Box className="mt-2">
+                                {submission.files.map((file, fileIdx) => (
+                                  <Box
+                                    key={fileIdx}
+                                    className="flex justify-between items-center p-2 bg-white rounded-lg mb-2 shadow-sm"
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      className="flex items-center gap-2"
+                                    >
+                                      <FaFile className="text-green-500" />
+                                      {file.fileName ||
+                                        file.fileUrl.split("/").pop()}
+                                    </Typography>
+
+                                    <Box className="flex gap-2">
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<FaDownload />}
+                                        href={convertToHttps(file.fileUrl)}
+                                        target="_blank"
+                                        className="text-green-600 border-green-600"
+                                      >
+                                        Yuklab olish
+                                      </Button>
+
+                                      {!submission.isSended && (
+                                        <Button
+                                          variant="contained"
+                                          size="small"
+                                          color="success"
+                                          onClick={() =>
+                                            handleEvaluate(submission, file)
+                                          }
+                                        >
+                                          Baholash
+                                        </Button>
+                                      )}
+                                    </Box>
+                                  </Box>
+                                ))}
+                              </Box>
+                            </Box>
+                          ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabPanel>
+          </CardContent>
+        </Card>
 
         {/* Evaluation Modal */}
         <Modal open={open} onClose={() => setOpen(false)}>
@@ -662,6 +830,7 @@ const TeacherSubmissions = () => {
                 color="primary"
                 onClick={handleSubmitEvaluation}
                 disabled={!rating}
+                startIcon={<FaStar />}
               >
                 Bahoni yuborish
               </Button>
