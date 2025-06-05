@@ -1,4 +1,3 @@
-// Improved materials.jsx for teachers with image support
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
@@ -18,6 +17,7 @@ import {
   CircularProgress,
   IconButton,
   Divider,
+  Alert,
 } from "@mui/material";
 import {
   FaPlus,
@@ -30,7 +30,7 @@ import {
   FaEdit,
 } from "react-icons/fa";
 import { convertToHttps } from "../utils";
-import FileUploadProgress from "../components/FileUploadProgress"; // Import the component
+import FileUploadProgress from "../components/FileUploadProgress";
 
 const TeacherMaterials = () => {
   const [materials, setMaterials] = useState([]);
@@ -51,6 +51,7 @@ const TeacherMaterials = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileType, setFileType] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     fetchMaterials();
@@ -66,7 +67,10 @@ const TeacherMaterials = () => {
       });
       setMaterials(res.data.data);
     } catch (err) {
-      setError("Xatolik yuz berdi: " + err.message);
+      setError(
+        "Materiallarni yuklashda xato: " +
+          (err.response?.data?.message || err.message)
+      );
     } finally {
       setLoading(false);
     }
@@ -86,6 +90,7 @@ const TeacherMaterials = () => {
     setUploadProgress(0);
     setEditMode(false);
     setEditId(null);
+    setFormError("");
   };
 
   const handleEdit = (material) => {
@@ -96,68 +101,80 @@ const TeacherMaterials = () => {
       description: material.description,
       content: material.content,
       file: null,
-      fileUrl: material.fileUrl,
+      fileUrl: material.fileUrl || "",
       thumbnail: null,
     });
     setFileType(material.fileType);
     setPreviewUrl(material.thumbnailUrl || "");
     setOpen(true);
+    setFormError("");
   };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    setFormError("");
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setFormData({ ...formData, file });
-
-      // Determine file type
       const extension = file.name.split(".").pop().toLowerCase();
       setFileType(extension);
-
-      // Clear thumbnail preview when file changes
-      if (formData.thumbnail) {
-        setFormData((prev) => ({ ...prev, thumbnail: null }));
-        setPreviewUrl("");
-      }
+      setFormError("");
     }
   };
 
   const handleThumbnailChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Only accept image files
       if (!file.type.startsWith("image/")) {
-        alert("Please select an image file for the thumbnail");
+        setFormError("Thumbnail faqat rasm bo'lishi kerak");
         return;
       }
-
       setFormData({ ...formData, thumbnail: file });
-
-      // Create and show preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result);
       };
       reader.readAsDataURL(file);
+      setFormError("");
     }
   };
 
   const handleFileDelete = () => {
     setFormData({ ...formData, file: null });
     setFileType(null);
+    setFormError("");
   };
 
   const handleThumbnailDelete = () => {
     setFormData({ ...formData, thumbnail: null });
     setPreviewUrl("");
+    setFormError("");
+  };
+
+  const validateForm = () => {
+    if (!formData.title) return "Sarlavha majburiy";
+    if (!formData.description) return "Tavsif majburiy";
+    if (formData.content === "file" && !editMode && !formData.file) {
+      return "Fayl majburiy";
+    }
+    if (formData.content === "link" && !formData.fileUrl) {
+      return "Havola majburiy";
+    }
+    return "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
 
@@ -166,30 +183,21 @@ const TeacherMaterials = () => {
     data.append("description", formData.description);
     data.append("content", formData.content);
 
-    if (formData.content === "file") {
-      // For file uploads
-      if (formData.file) {
-        data.append("file", formData.file);
-      } else if (editMode && !formData.file) {
-        // In edit mode, keep existing file URL if no new file
-        data.append("fileUrl", formData.fileUrl);
-      }
-    } else {
-      // For URL links
+    if (formData.content === "file" && formData.file) {
+      data.append("file", formData.file);
+    } else if (editMode && formData.fileUrl) {
+      data.append("fileUrl", formData.fileUrl);
+    } else if (formData.content === "link") {
       data.append("fileUrl", formData.fileUrl);
     }
 
-    // Add thumbnail if present
     if (formData.thumbnail) {
       data.append("thumbnail", formData.thumbnail);
     } else if (editMode && previewUrl && previewUrl.startsWith("http")) {
-      // Keep existing thumbnail in edit mode
       data.append("thumbnailUrl", previewUrl);
     }
 
-    // Handle edit vs create
     const url = editMode ? `/api/materials/${editId}` : "/api/materials";
-
     const method = editMode ? "put" : "post";
 
     try {
@@ -198,7 +206,6 @@ const TeacherMaterials = () => {
         url,
         data,
         headers: {
-          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${localStorage.getItem("ziyo-token")}`,
         },
         onUploadProgress: (progressEvent) => {
@@ -210,19 +217,17 @@ const TeacherMaterials = () => {
       });
 
       if (editMode) {
-        // Update the material in the state
         setMaterials((prevMaterials) =>
           prevMaterials.map((m) => (m._id === editId ? res.data.data : m))
         );
       } else {
-        // Add new material to the state
         setMaterials([res.data.data, ...materials]);
       }
 
       resetForm();
       setOpen(false);
     } catch (err) {
-      console.error("Material qo'shishda xatolik:", err);
+      setFormError(err.response?.data?.message || "Yuklashda xato yuz berdi");
     } finally {
       setUploading(false);
     }
@@ -237,13 +242,14 @@ const TeacherMaterials = () => {
       });
       setMaterials(materials.filter((material) => material._id !== id));
     } catch (err) {
-      console.error("Material o'chirishda xatolik:", err);
+      setError(
+        "O'chirishda xato: " + (err.response?.data?.message || err.message)
+      );
     }
   };
 
   const getFileIcon = (fileType) => {
     if (!fileType) return <FaFileWord size={24} className="text-gray-500" />;
-
     switch (fileType.toLowerCase()) {
       case "pdf":
         return <FaFilePdf size={24} className="text-red-500" />;
@@ -271,9 +277,9 @@ const TeacherMaterials = () => {
 
   if (error)
     return (
-      <Typography className="text-red-500 text-center mt-10">
+      <Alert severity="error" className="max-w-6xl mx-auto mt-10">
         {error}
-      </Typography>
+      </Alert>
     );
 
   return (
@@ -296,12 +302,10 @@ const TeacherMaterials = () => {
           </Button>
         </div>
 
-        {/* Materials Grid */}
         <Grid container spacing={3}>
           {materials.map((material) => (
             <Grid item xs={12} sm={6} md={4} key={material._id}>
               <Card className="h-full flex flex-col shadow-md hover:shadow-lg transition-shadow">
-                {/* Display thumbnail if available, or show appropriate icon */}
                 {material.thumbnailUrl ? (
                   <CardMedia
                     component="img"
@@ -323,19 +327,16 @@ const TeacherMaterials = () => {
                     </Box>
                   </Box>
                 )}
-
                 <CardContent className="flex-1 flex flex-col">
                   <Typography variant="h6" className="font-semibold mb-2">
                     {material.title}
                   </Typography>
-
                   <Typography
                     variant="body2"
                     className="text-gray-600 mb-4 flex-grow line-clamp-3"
                   >
                     {material.description}
                   </Typography>
-
                   <Box className="flex justify-between items-center mt-auto">
                     <Box className="flex gap-2">
                       <Button
@@ -346,7 +347,6 @@ const TeacherMaterials = () => {
                       >
                         Tahrirlash
                       </Button>
-
                       {material.content === "file" && (
                         <Button
                           variant="outlined"
@@ -359,7 +359,6 @@ const TeacherMaterials = () => {
                           Yuklab olish
                         </Button>
                       )}
-
                       {material.content === "link" && (
                         <Button
                           variant="outlined"
@@ -373,7 +372,6 @@ const TeacherMaterials = () => {
                         </Button>
                       )}
                     </Box>
-
                     <IconButton
                       color="error"
                       onClick={() => handleDelete(material._id)}
@@ -387,7 +385,6 @@ const TeacherMaterials = () => {
           ))}
         </Grid>
 
-        {/* Add/Edit Material Modal */}
         <Modal open={open} onClose={() => setOpen(false)}>
           <Box
             sx={{
@@ -407,7 +404,11 @@ const TeacherMaterials = () => {
             <Typography variant="h6" className="font-bold mb-4">
               {editMode ? "Materialni tahrirlash" : "Yangi Material Qo'shish"}
             </Typography>
-
+            {formError && (
+              <Alert severity="error" className="mb-4">
+                {formError}
+              </Alert>
+            )}
             <form onSubmit={handleSubmit}>
               <TextField
                 label="Sarlavha"
@@ -418,7 +419,6 @@ const TeacherMaterials = () => {
                 margin="normal"
                 required
               />
-
               <TextField
                 label="Tavsif"
                 name="description"
@@ -430,7 +430,6 @@ const TeacherMaterials = () => {
                 rows={3}
                 required
               />
-
               <FormControl fullWidth margin="normal">
                 <InputLabel>Material Turi</InputLabel>
                 <Select
@@ -443,7 +442,6 @@ const TeacherMaterials = () => {
                   <MenuItem value="link">Havola</MenuItem>
                 </Select>
               </FormControl>
-
               {formData.content === "file" ? (
                 <div className="mb-4">
                   {formData.file ? (
@@ -493,6 +491,7 @@ const TeacherMaterials = () => {
                       <input
                         id="file-upload"
                         type="file"
+                        accept=".doc, .docx, .pdf"
                         className="hidden"
                         onChange={handleFileChange}
                         disabled={uploading}
@@ -511,13 +510,10 @@ const TeacherMaterials = () => {
                   required
                 />
               )}
-
-              {/* Thumbnail section */}
               <Divider className="my-4" />
               <Typography variant="subtitle1" className="mb-2">
                 Material rasmi
               </Typography>
-
               {previewUrl ? (
                 <div className="mb-4">
                   <div className="relative w-full h-40 rounded overflow-hidden mb-2">
@@ -558,8 +554,6 @@ const TeacherMaterials = () => {
                   />
                 </label>
               )}
-
-              {/* Upload progress */}
               {uploading && uploadProgress > 0 && (
                 <Box className="mt-4 mb-4">
                   <FileUploadProgress
@@ -568,7 +562,6 @@ const TeacherMaterials = () => {
                   />
                 </Box>
               )}
-
               <Box className="flex justify-end gap-2 mt-4">
                 <Button
                   onClick={() => setOpen(false)}
@@ -581,7 +574,7 @@ const TeacherMaterials = () => {
                   type="submit"
                   variant="contained"
                   className="bg-blue-600 text-white hover:bg-blue-700"
-                  disabled={uploading}
+                  disabled={uploading || !!validateForm()}
                 >
                   {uploading
                     ? "Yuklanmoqda..."
