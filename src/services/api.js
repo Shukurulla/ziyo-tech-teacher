@@ -3,7 +3,7 @@ import axios from "axios";
 // Base URL sozlash
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://ziyo-tech-server.vercel.app" // Production URL
+    ? "https://ziyo.test-avtomaktab.uz" // Production URL
     : "http://localhost:5000"; // Development URL
 
 // Axios instance yaratish
