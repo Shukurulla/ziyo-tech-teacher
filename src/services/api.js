@@ -1,16 +1,12 @@
 import axios from "axios";
 
 // Base URL sozlash
-const API_BASE_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://ziyo.test-avtomaktab.uz" // Production URL
-    : "http://localhost:5000"; // Development URL
+const API_BASE_URL = "https://ziyo.test-avtomaktab.uz";
 
 // Axios instance yaratish
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 120000, // 2 minutes timeout for large file uploads
-  withCredentials: true, // CORS credentials uchun
 });
 
 // Request interceptor - har bir so'rovga token qo'shish
@@ -22,10 +18,8 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // CORS uchun zarur headerlar
+    // Basic headers
     config.headers["Accept"] = "application/json";
-    config.headers["Cache-Control"] = "no-cache";
-    config.headers["Pragma"] = "no-cache";
 
     // Content-Type ni faqat JSON uchun o'rnatish
     // FormData uchun Content-Type avtomatik o'rnatiladi
@@ -51,19 +45,10 @@ api.interceptors.response.use(
   (error) => {
     console.error("API Error:", error);
 
-    // CORS xatoliklarini aniqroq xabar bilan qaytarish
+    // Network xatolari
     if (error.code === "ERR_NETWORK") {
-      console.error("Network Error - Possible CORS issue");
+      console.error("Network Error");
       error.message = "Tarmoq xatosi. Server bilan aloqa o'rnatilmadi.";
-    }
-
-    // 403 CORS error
-    if (
-      error.response?.status === 403 &&
-      error.response?.data?.message === "CORS policy violation"
-    ) {
-      console.error("CORS Policy Violation:", error.response.data);
-      error.message = "CORS xatosi. Domen ruxsat etilmagan.";
     }
 
     // Timeout xatolari
@@ -87,7 +72,6 @@ api.interceptors.response.use(
 
 // Axios defaultlarini o'rnatish backward compatibility uchun
 axios.defaults.baseURL = API_BASE_URL;
-axios.defaults.withCredentials = true;
 axios.defaults.timeout = 120000;
 
 // Request interceptor ham default axios uchun
