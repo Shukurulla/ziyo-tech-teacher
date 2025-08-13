@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "../services/api";
+import { uploadPractice, validateFile } from "../utils/uploadHelpers";
 import {
   FaTrash,
   FaDownload,
@@ -102,28 +103,27 @@ export default function PracticeList() {
     setIsUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    formData.append("title", form.title);
-    formData.append("description", form.description);
-    formData.append("file", form.file);
-
     try {
-      const { data } = await axios.post("/api/practices", formData, {
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
+      validateFile(form.file, {
+        maxSize: 50 * 1024 * 1024, // 50MB
+        allowedExtensions: ["pdf", "doc", "docx"],
       });
 
-      setPractices((prev) => [data, ...prev]);
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("description", form.description);
+      formData.append("file", form.file);
+
+      const result = await uploadPractice(formData, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      setPractices((prev) => [result.data, ...prev]);
       setForm({ title: "", description: "", file: null });
       setShowModal(false);
       toast.success("Praktika muvaffaqiyatli qo'shildi!");
     } catch (error) {
-      console.error("Error uploading practice:", error);
-      toast.error("Yuklashda xatolik yuz berdi");
+      // Error handling automatic
     } finally {
       setIsUploading(false);
     }

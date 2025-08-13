@@ -2,6 +2,11 @@
 import React, { useState } from "react";
 import axios from "../services/api";
 import {
+  uploadVideo,
+  validateFile,
+  checkCORSSupport,
+} from "../utils/uploadHelpers";
+import {
   Container,
   Typography,
   TextField,
@@ -146,94 +151,39 @@ function CreateVideo() {
     setUploadProgress({ video: 0, server: 0, overall: 0 });
 
     try {
-      // Upload video to API.video
+      // Video API.video ga yuklash
       const videoLink = await handleVideoUpload();
 
-      // Now move to server upload stage
+      // Server ga yuklash
       setUploadStage("server");
-
-      // Prepare form data for server upload
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description);
       data.append("video", JSON.stringify(videoLink));
 
-      // Calculate total files for progress tracking
-      const totalFiles = formData.audios.length + formData.presentations.length;
-      setTotalServerFiles(totalFiles);
-      setServerFilesCompleted(0);
-
-      // Add audio files
       for (const file of formData.audios) {
         data.append("audios", file);
       }
-
-      // Add presentation files
       for (const file of formData.presentations) {
         data.append("presentations", file);
       }
 
-      // Set the server processing flag
-      setProcessingData(true);
-
-      // Upload to our server with progress tracking
-      const serverResponse = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener("progress", (progressEvent) => {
-          if (progressEvent.lengthComputable) {
-            const percentComplete = Math.round(
-              (progressEvent.loaded / progressEvent.total) * 100
-            );
-            setUploadProgress((prev) => ({
-              ...prev,
-              server: percentComplete,
-              overall: 70 + Math.round(percentComplete * 0.3), // Server upload is 30% of overall progress
-            }));
-          }
-        });
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            setUploadProgress({
-              video: 100,
-              server: 100,
-              overall: 100,
-            });
-            resolve(JSON.parse(xhr.responseText));
-          } else {
-            reject(new Error(`HTTP Error: ${xhr.status}`));
-          }
-        };
-
-        xhr.onerror = () => reject(new Error("Network error"));
-
-        xhr.open("POST", `${axios.defaults.baseURL}/api/upload`);
-        xhr.setRequestHeader(
-          "Authorization",
-          `Bearer ${localStorage.getItem("ziyo-jwt")}`
-        );
-        xhr.send(data);
+      const serverResponse = await uploadVideo(data, (progress) => {
+        setUploadProgress((prev) => ({
+          ...prev,
+          server: progress,
+          overall: 70 + Math.round(progress * 0.3),
+        }));
       });
 
-      // Set upload as complete
       setUploadStage("complete");
-
-      // Set a loading delay to ensure files are fully processed on the server
       setTimeout(() => {
-        // Processing finished
         setProcessingData(false);
-
-        // Success!
         toast.success("Video muvaffaqiyatli yuklandi! ✅");
-
-        // Navigate to home
         navigate("/");
       }, 1500);
     } catch (err) {
-      console.error(err);
-      setError("Yuklashda xatolik yuz berdi.❌");
-      toast.error("Yuklashda xatolik yuz berdi.❌");
+      // Error handling automatic
       setProcessingData(false);
       setIsLoading(false);
     }

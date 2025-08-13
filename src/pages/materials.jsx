@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { uploadMaterial, validateFile } from "../utils/uploadHelpers";
 import {
   Typography,
   Button,
@@ -204,9 +205,9 @@ const TeacherMaterials = () => {
     }
     return "";
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const validationError = validateForm();
     if (validationError) {
       setFormError(validationError);
@@ -222,53 +223,44 @@ const TeacherMaterials = () => {
     data.append("content", formData.content);
 
     if (formData.content === "file" && formData.file) {
+      try {
+        validateFile(formData.file, {
+          maxSize: 100 * 1024 * 1024, // 100MB
+          allowedExtensions: ["pdf", "doc", "docx"],
+        });
+      } catch (error) {
+        setFormError(error.message);
+        setUploading(false);
+        return;
+      }
       data.append("file", formData.file);
-    } else if (editMode && formData.fileUrl) {
-      data.append("fileUrl", formData.fileUrl);
     } else if (formData.content === "link") {
       data.append("fileUrl", formData.fileUrl);
     }
 
     if (formData.thumbnail) {
       data.append("thumbnail", formData.thumbnail);
-    } else if (editMode && previewUrl && previewUrl.startsWith("http")) {
-      data.append("thumbnailUrl", previewUrl);
     }
 
-    const url = editMode ? `/api/materials/${editId}` : "/api/materials";
-    const method = editMode ? "put" : "post";
-
     try {
-      const res = await axios({
-        method,
-        url,
-        data,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("ziyo-token")}`,
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
+      const res = await uploadMaterial(data, (progress) => {
+        setUploadProgress(progress);
       });
 
       if (editMode) {
         setMaterials((prevMaterials) =>
-          prevMaterials.map((m) => (m._id === editId ? res.data.data : m))
+          prevMaterials.map((m) => (m._id === editId ? res.data : m))
         );
         toast.success("Material muvaffaqiyatli yangilandi!");
       } else {
-        setMaterials([res.data.data, ...materials]);
+        setMaterials([res.data, ...materials]);
         toast.success("Material muvaffaqiyatli qo'shildi!");
       }
 
       resetForm();
       setOpen(false);
     } catch (err) {
-      setFormError(err.response?.data?.message || "Yuklashda xato yuz berdi");
-      toast.error("Yuklashda xatolik yuz berdi");
+      // Error handling automatic
     } finally {
       setUploading(false);
     }
