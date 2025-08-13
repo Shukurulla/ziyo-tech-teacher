@@ -1,5 +1,5 @@
 // Frontend utility function for handling uploads with proper CORS
-import { api, uploadWithProgress } from "./api.js";
+import { api, uploadWithProgress } from "../services/api";
 import toast from "react-hot-toast";
 
 // Enhanced upload function with retry mechanism
