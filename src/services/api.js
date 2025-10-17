@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Base URL sozlash
-const API_BASE_URL = "/api";
+const API_BASE_URL = "https://server.ziyo-tech.uz";
 
 // Axios instance yaratish
 const api = axios.create({

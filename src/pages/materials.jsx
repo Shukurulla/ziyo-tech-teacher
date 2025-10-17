@@ -40,6 +40,7 @@ import {
 import { convertToHttps } from "../utils";
 import FileUploadProgress from "../components/FileUploadProgress";
 import toast from "react-hot-toast";
+import DownloadButton from "../components/download";
 
 const TeacherMaterials = () => {
   const [materials, setMaterials] = useState([]);
@@ -406,17 +407,7 @@ const TeacherMaterials = () => {
                           Tahrirlash
                         </Button>
                         {material.content === "file" && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<FaDownload />}
-                            href={convertToHttps(material.fileUrl)}
-                            target="_blank"
-                            color="primary"
-                            className="text-green-600 border-green-600 hover:bg-green-50"
-                          >
-                            Yuklab olish
-                          </Button>
+                          <DownloadButton material={material} />
                         )}
                         {material.content === "link" && (
                           <Button

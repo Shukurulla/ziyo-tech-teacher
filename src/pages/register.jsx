@@ -58,11 +58,11 @@ const Register = () => {
 
   // Registration Form Page
   return (
-    <div>
+    <div className="h-[90vh] overflow-y-scroll">
       <header className="py-4 px-4 container">
         <img src={Logo} alt="" />
       </header>
-      <main className="w-100 flex justify-center py-5">
+      <main className="w-100 flex  justify-center py-5">
         <div className="bg-[#fff] border-[2px] border-[#E5E7EB] p-6 rounded-lg w-full max-w-md">
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-2 block">Ism*</label>
