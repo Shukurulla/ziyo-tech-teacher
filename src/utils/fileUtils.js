@@ -2,24 +2,27 @@
 export const convertFileUrl = (url) => {
   if (!url) return url;
 
-  // Agar URL allaqachon to'g'ri bo'lsa (ziyo-tech.uz dan boshlansa)
-  if (url.startsWith("https://ziyo-tech.uz")) {
+  // Agar URL allaqachon to'g'ri bo'lsa (server.ziyo-tech.uz dan boshlansa)
+  if (url.startsWith("https://server.ziyo-tech.uz")) {
     return url;
   }
 
-  // Agar URL teacher.ziyo-tech.uz dan boshlansa, ziyo-tech.uz ga o'zgartirish
-  if (url.startsWith("https://teacher.ziyo-tech.uz")) {
-    return url.replace("https://teacher.ziyo-tech.uz", "https://ziyo-tech.uz");
+  // Agar URL eski domenlardan boshlansa, server.ziyo-tech.uz ga o'zgartirish
+  if (url.includes("ziyo-tech.uz")) {
+    return url.replace(
+      /https?:\/\/[^\/]*ziyo-tech\.uz/,
+      "https://server.ziyo-tech.uz"
+    );
   }
 
-  // Agar URL relative bo'lsa (/uploads/... ), domain qo'shish
+  // Agar URL relative bo'lsa (/uploads/... ), server domain qo'shish
   if (url.startsWith("/uploads/")) {
-    return `https://ziyo-tech.uz${url}`;
+    return `https://server.ziyo-tech.uz${url}`;
   }
 
   // Agar URL faqat filename bo'lsa
   if (!url.includes("/")) {
-    return `https://ziyo-tech.uz/uploads/files/${url}`;
+    return `https://server.ziyo-tech.uz/uploads/files/${url}`;
   }
 
   return url;

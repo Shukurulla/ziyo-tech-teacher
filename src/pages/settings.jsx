@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "../services/api";
-import { FaSave } from "react-icons/fa";
+import { FaSave, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import { getProfile } from "../services/user.service";
 import { toast } from "react-hot-toast";
@@ -17,6 +17,7 @@ export default function EditProfile() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const fetchTeacher = async () => {
@@ -54,21 +55,43 @@ export default function EditProfile() {
     <div className="max-w-xl mx-auto p-4">
       <h2 className="text-2xl font-bold mb-6">Profilni tahrirlash</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {["firstname", "lastname", "workPlace", "position", "login"].map(
-          (field) => (
-            <div key={field}>
-              <label className="block mb-1 capitalize">{field}</label>
+        {[
+          "firstname",
+          "lastname",
+          "workPlace",
+          "position",
+          "login",
+          "password",
+        ].map((field) => (
+          <div key={field}>
+            <label className="block mb-1 capitalize">{field}</label>
+            <div className="relative">
               <input
-                type="text"
+                type={
+                  field === "password"
+                    ? showPassword
+                      ? "text"
+                      : "password"
+                    : "text"
+                }
                 name={field}
                 value={form[field]}
                 onChange={handleChange}
-                className="w-full border px-3 py-2 rounded"
+                className="w-full border px-3 py-2 rounded pr-10"
                 required
               />
+              {field === "password" && (
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              )}
             </div>
-          )
-        )}
+          </div>
+        ))}
 
         <button
           type="submit"

@@ -64,6 +64,10 @@ const Sidebar = ({ active, onClose }) => {
       }
     };
     fetchUnreadCount();
+
+    // Refresh unread count every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = () => {

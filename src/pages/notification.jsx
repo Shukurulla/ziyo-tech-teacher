@@ -234,6 +234,17 @@ const TeacherSubmissions = () => {
           },
         }
       );
+
+      // Mark the submission as evaluated
+      await axios.put(
+        `/api/${selectedFile.submission.type}Work/${selectedFile.submission.workId}`,
+        {
+          isSended: true,
+          rating: rating,
+          comment: comment,
+        }
+      );
+
       setOpen(false);
       fetchSubmissions(); // Reload the data
     } catch (err) {
