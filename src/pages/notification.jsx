@@ -237,7 +237,7 @@ const TeacherSubmissions = () => {
 
       // Mark the submission as evaluated
       await axios.put(
-        `/api/${selectedFile.submission.type}Work/${selectedFile.submission.workId}`,
+        `/api/${selectedFile.submission.type}/${selectedFile.submission.workId}`,
         {
           isSended: true,
           rating: rating,
