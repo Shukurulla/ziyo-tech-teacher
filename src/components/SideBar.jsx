@@ -37,6 +37,11 @@ const menuItems = [
     icon: <FiBell />,
   },
   {
+    title: "Glossary",
+    path: "/glossary",
+    icon: <FiBookOpen />,
+  },
+  {
     title: "Sozlamalar",
     path: "/settings",
     icon: <FiSettings />,

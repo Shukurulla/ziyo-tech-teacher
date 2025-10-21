@@ -42,17 +42,16 @@ const UserService = {
 };
 
 export const getProfile = async () => {
-  const token = localStorage.getItem("ziyo-jwt");
-  if (!token) throw new Error("Token topilmadi");
-
-  const response = await axios.get("/api/teacher/profile", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  console.log(response);
-
-  return response.data.data;
+  try {
+    const response = await axios.get("/api/teacher/profile");
+    return response.data.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("ziyo-jwt");
+      window.location.href = "/auth/login";
+    }
+    throw error;
+  }
 };
 
 export default UserService;

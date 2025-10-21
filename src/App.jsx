@@ -6,6 +6,7 @@ import Login from "./pages/login";
 import { Toaster } from "react-hot-toast";
 import Layout from "./pages/layout";
 import Dashboard from "./pages/dashboard";
+import GlossaryPage from "./pages/glossary";
 import Materials from "./pages/materials";
 import CreateVideo from "./pages/create-video";
 import VideoDetailPage from "./pages/videoDetail";
@@ -15,12 +16,9 @@ import EditProfile from "./pages/settings";
 import TeacherSubmissions from "./pages/notification";
 import AddMatchingTest from "./pages/matchingTestCreate";
 import TestTypeSelection from "./pages/TestTypeSelection";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const App = () => {
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (!localStorage.getItem("ziyo-jwt")) navigate("/auth/login");
-  }, []);
   return (
     <div>
       <Toaster />
@@ -29,58 +27,96 @@ const App = () => {
         <Route path="/auth/login" element={<Login />} />
         <Route
           path="/"
-          element={<Layout active={"Bosh Sahifa"} activePage={<Dashboard />} />}
+          element={
+            <ProtectedRoute>
+              <Layout active={"Bosh Sahifa"} activePage={<Dashboard />} />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/practicum-tests"
           element={
-            <Layout active={"Praktik testlar"} activePage={<PracticeList />} />
+            <ProtectedRoute>
+              <Layout
+                active={"Praktik testlar"}
+                activePage={<PracticeList />}
+              />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/materials"
           element={
-            <Layout active={"Materiyallar"} activePage={<Materials />} />
+            <ProtectedRoute>
+              <Layout active={"Materiyallar"} activePage={<Materials />} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/glossary"
+          element={
+            <ProtectedRoute>
+              <Layout active={"Glossary"} activePage={<GlossaryPage />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/settings"
           element={
-            <Layout active={"Sozlamalar"} activePage={<EditProfile />} />
+            <ProtectedRoute>
+              <Layout active={"Sozlamalar"} activePage={<EditProfile />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/video/:id"
           element={
-            <Layout active={"Bosh Sahifa"} activePage={<VideoDetailPage />} />
+            <ProtectedRoute>
+              <Layout active={"Bosh Sahifa"} activePage={<VideoDetailPage />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/create-video"
           element={
-            <Layout active={"Bosh Sahifa"} activePage={<CreateVideo />} />
+            <ProtectedRoute>
+              <Layout active={"Bosh Sahifa"} activePage={<CreateVideo />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/video/:videoId/add-test"
-          element={<Layout active={"Bosh Sahifa"} activePage={<AddTest />} />}
+          element={
+            <ProtectedRoute>
+              <Layout active={"Bosh Sahifa"} activePage={<AddTest />} />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/video/:videoId/add-matching-test"
           element={
-            <Layout active={"Bosh Sahifa"} activePage={<AddMatchingTest />} />
+            <ProtectedRoute>
+              <Layout active={"Bosh Sahifa"} activePage={<AddMatchingTest />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/notifications"
           element={
-            <Layout active={"Xabarlar"} activePage={<TeacherSubmissions />} />
+            <ProtectedRoute>
+              <Layout active={"Xabarlar"} activePage={<TeacherSubmissions />} />
+            </ProtectedRoute>
           }
         />
         <Route
           path="/video/:videoId/select-test-type"
           element={
-            <Layout active={"Bosh Sahifa"} activePage={<TestTypeSelection />} />
+            <ProtectedRoute>
+              <Layout
+                active={"Bosh Sahifa"}
+                activePage={<TestTypeSelection />}
+              />
+            </ProtectedRoute>
           }
         />
       </Routes>

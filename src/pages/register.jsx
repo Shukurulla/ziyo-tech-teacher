@@ -108,7 +108,7 @@ const Register = () => {
 
               <div className="mb-4">
                 <label className="text-gray-400 text-sm mb-2 block">
-                  Qaysi maktab*
+                  Ish joyingiz*
                 </label>
                 <input
                   type="text"

@@ -29,10 +29,11 @@ export default function EditProfile() {
         setUser(data);
       } catch (err) {
         console.error("Ma'lumot yuklanmadi", err);
+        setLoading(false);
       }
     };
     fetchTeacher();
-  }, [user._id]);
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });

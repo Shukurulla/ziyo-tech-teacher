@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:2025",
+        target: "https://server.ziyo-tech.uz",
         changeOrigin: true,
         secure: false,
       },
