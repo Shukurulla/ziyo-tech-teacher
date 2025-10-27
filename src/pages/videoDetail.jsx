@@ -88,16 +88,15 @@ const VideoDetail = () => {
       </Button>
 
       {/* Video player */}
-      <div className="relative w-full h-[60vh] mb-6 rounded-lg overflow-hidden shadow-lg">
-        <iframe
-          src={video.video?.player}
+      <div className="relative w-full h-[60vh] mb-6 rounded-lg overflow-hidden shadow-lg bg-black">
+        <video
+          src={video.video?.assets?.player || video.video?.player}
           width="100%"
           height="100%"
-          frameBorder="0"
-          allowFullScreen
+          controls
           title={video.title}
           className="w-full h-full"
-        ></iframe>
+        />
       </div>
 
       {/* Video info */}

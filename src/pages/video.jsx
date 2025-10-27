@@ -55,17 +55,16 @@ const Video = () => {
       <div className="row">
         <div className="col-lg-8 col-md-8">
           <div className="video-box">
-            <div className="w-100 flex items-center justify-center rounded-lg bg-white h-[70vh] relative">
-              {/* Iframe player */}
-              <iframe
-                src={video.video?.player}
+            <div className="w-100 flex items-center justify-center rounded-lg bg-black h-[70vh] relative">
+              {/* Video player */}
+              <video
+                src={video.video?.assets?.player || video.video?.player}
                 width="100%"
                 height="100%"
-                frameBorder="0"
-                allowFullScreen
+                controls
                 title={video.title}
                 className="rounded-lg absolute top-0 left-0 w-full h-full"
-              ></iframe>
+              />
               {/* Play icon (agar iframe autoplay bo‘lmasa kerak bo‘lishi mumkin) */}
               {/* Agar iframe darhol o‘ynasa, quyidagisini olib tashlash mumkin */}
               {/* <div className="bg-[#F2F5F9] cursor-pointer w-20 h-20 rounded-full flex items-center justify-center z-10">
