@@ -71,78 +71,6 @@ function CreateVideo() {
     setFormData({ ...formData, [type]: updated });
   };
 
-  const handleVideoUpload = async () => {
-    setUploadStage("video");
-    const apiKey = "Jema7G2W7aF46lccCcnZz4slt5kljMsdHtnrZ1Phnjo";
-    const title = formData.title;
-
-    try {
-      // Create video metadata
-      const createRes = await fetch("https://ws.api.video/videos", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title }),
-      });
-
-      const createData = await createRes.json();
-      if (!createData.videoId) {
-        throw new Error("Video yaratishda xatolik");
-      }
-
-      const videoId = createData.videoId;
-
-      // Prepare upload form data
-      const formDataVideo = new FormData();
-      formDataVideo.append("file", formData.video);
-
-      // Upload the video with progress tracking
-      const uploadResponse = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener("progress", (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round(
-              (event.loaded / event.total) * 100
-            );
-            setUploadProgress((prev) => ({
-              ...prev,
-              video: percentComplete,
-              overall: Math.round(percentComplete * 0.7), // Video is 70% of overall progress
-            }));
-          }
-        });
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            // Set video progress to 100% when complete
-            setUploadProgress((prev) => ({
-              ...prev,
-              video: 100,
-              overall: 70, // Video is 70% complete of overall process
-            }));
-            resolve(JSON.parse(xhr.responseText));
-          } else {
-            reject(new Error(`HTTP Error: ${xhr.status}`));
-          }
-        };
-
-        xhr.onerror = () => reject(new Error("Network error"));
-
-        xhr.open("POST", `https://ws.api.video/videos/${videoId}/source`);
-        xhr.setRequestHeader("Authorization", `Bearer ${apiKey}`);
-        xhr.send(formDataVideo);
-      });
-
-      return uploadResponse?.assets;
-    } catch (error) {
-      console.error("Video yuklashda xatolik:", error);
-      throw error;
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccess("");
@@ -151,19 +79,23 @@ function CreateVideo() {
     setUploadProgress({ video: 0, server: 0, overall: 0 });
 
     try {
-      // Video API.video ga yuklash
-      const videoLink = await handleVideoUpload();
-
-      // Server ga yuklash
+      // Server ga to'g'ridan-to'g'ri yuklash (video, audios, presentations)
       setUploadStage("server");
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description);
-      data.append("video", JSON.stringify(videoLink));
 
+      // Video faylni qo'shish
+      if (formData.video) {
+        data.append("video", formData.video);
+      }
+
+      // Audio fayllarni qo'shish
       for (const file of formData.audios) {
         data.append("audios", file);
       }
+
+      // Presentation fayllarni qo'shish
       for (const file of formData.presentations) {
         data.append("presentations", file);
       }
@@ -172,7 +104,8 @@ function CreateVideo() {
         setUploadProgress((prev) => ({
           ...prev,
           server: progress,
-          overall: 70 + Math.round(progress * 0.3),
+          video: progress, // Video va server bir xil progress bo'ladi
+          overall: progress,
         }));
       });
 
@@ -184,20 +117,20 @@ function CreateVideo() {
       }, 1500);
     } catch (err) {
       // Error handling automatic
+      console.error("Upload error:", err);
       setProcessingData(false);
       setIsLoading(false);
+      toast.error("Yuklashda xatolik yuz berdi!");
     }
   };
 
   // Get stage text
   const getStageText = () => {
     switch (uploadStage) {
-      case "video":
-        return "Video API.video serveriga yuklanmoqda...";
       case "server":
         return processingData
           ? "Fayllar serverda qayta ishlanmoqda..."
-          : "Audio va taqdimotlar serverga yuklanmoqda...";
+          : "Video va fayllar serverga yuklanmoqda...";
       case "complete":
         return "Yuklash yakunlandi! Sahifaga yo'naltirilmoqdasiz...";
       default:
@@ -390,16 +323,10 @@ function CreateVideo() {
                     {getStageText()}
                   </Typography>
 
-                  {uploadStage === "video" &&
-                    renderProgressBar("Video yuklash", uploadProgress.video)}
-
                   {uploadStage === "server" && (
                     <>
-                      <Typography variant="body2" color="success.main" mb={1}>
-                        ✓ Video yuklandi
-                      </Typography>
                       {renderProgressBar(
-                        "Audio va taqdimotlar yuklash",
+                        "Video va fayllar yuklash",
                         uploadProgress.server
                       )}
                     </>
@@ -408,10 +335,7 @@ function CreateVideo() {
                   {uploadStage === "complete" && (
                     <>
                       <Typography variant="body2" color="success.main" mb={1}>
-                        ✓ Video yuklandi
-                      </Typography>
-                      <Typography variant="body2" color="success.main" mb={1}>
-                        ✓ Audio va taqdimotlar yuklandi
+                        ✓ Barcha fayllar muvaffaqiyatli yuklandi
                       </Typography>
                       {processingData && (
                         <Box
